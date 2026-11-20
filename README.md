@@ -25,3 +25,9 @@
 ## 当前不在范围内
 
 参数优化算法、代理模型、优化 Agent、多轴承类型完整支持、动力学求解、CAD/二维图纸/三维模型集成。
+
+## PR-00 本机审计（2026-11-20）
+
+已列出43条记录/324字段的原版源码、默认值、getter/setter、CSV/SQLite资源和实际DGB案例证据。工程输入冻结仍BLOCKED，问题B01–B10见[审计报告](docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md)。本仓库没有Agent或优化实现，未启动PR-01，不自动合并。
+
+[事实说明书](docs/PROJECT_MANUAL.md) · [变更记录](docs/PROJECT_CHANGELOG.md) · [验证结果](docs/pr00/VALIDATION.md)

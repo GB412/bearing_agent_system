@@ -1,160 +1,98 @@
-# PR-00：DGB RoBAS 8.11 拟静力学输入审计
+# PR-00：DGB RoBAS 拟静力学工程输入审计
 
-- 目标分支：main
-- 当前分支：docs/pr-00-robas-quasi-static-input-audit
-- 状态：审计/规划 PR；未实现业务代码
-- 范围：DGB、RoBAS 8.11、拟静力学 Mode=-1
+- 日期：2026-11-20（Asia/Shanghai）；GitHub PR **#1**，项目阶段 **PR-00**，两者分别编号。
+- 分支：`docs/pr-00-robas-quasi-static-input-audit`；业务基线 `02861ea09e77906f4360ed1e3e9c7268a0c9ea1f`。本次修改未提交，实际提交引用将在 PROJECT_CHANGELOG 追加。
+- 结论：43 记录/324 字段的源码及资源盘点完成；工程输入协议冻结 **BLOCKED**，等待人工验收。没有 Agent/优化实现，没有修改原版 DATA/SQLite/EXE 或 Bearing_CAD 架构，没有开始 PR-01。
+- [逐字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)、[原始定位证据](evidence/audit.json)、[全表结构](DATABASE_SCHEMA_AUDIT.md)、[UI 观察](UI_OBSERVATIONS.md)、[验证结果](VALIDATION.md)。
 
-## 1. 目标
+## 1. 方法和证据边界
 
-建立可审计的 DGB 拟静力学输入清单，逐项回答：
+完整阅读本仓库 MASTER_PLAN、原 PR-00 和初始矩阵，核对干净分支及 SHA。原仓库没有 PROJECT_MANUAL/PROJECT_CHANGELOG，本次补建。Bearing_CAD 本机 main 为 `4460a784846d7df978579f49e8685a18da336e81`，审查时工作区干净。使用本地源码事实优先于旧迁移文档。
 
-1. 原版 43 条 DATA 记录的每个字段是什么、单位是什么、由谁/什么赋值？
-2. 每个字段属于用户输入、RoBAS 数据库、公式派生、五个优化变量、固定求解器配置，还是参考 profile 中尚未解释的值？
-3. 每个非优化必需字段能否从对话结果和受信数据源得到？
-4. 如果不能，缺少什么源码、数据库、原版案例或工程确认？
-5. 当前 Bearing_CAD 的输入 builder/API 可以复用什么，哪些缺口必须在后续 PR 解决？
-6. 怎样确保未确认推荐值、profile 遗留值和缺失值不会静默进入最终 DATA？
+源码根 `D:/RotorStudio/RoBAS`；资源根 `D:/RotorStudio/ui_rotorstudio-9857bcc7afce658be15dfd2b559a55cb12b55bbd/NetLib/RoBAS_Resources`；Python 根 `D:/RotorStudio/Bearing_CAD/Bearing_CAD`。JSON inventory 保存全部 101 个实际 C# 文件、审查的 Python 文件、SQLite/CSV/EXE/DATA 路径、字节数及 SHA-256。未将商业二进制/数据库完整复制进 Git。
 
-PR-00 是审计和规范冻结阶段，不修改求解器、不生成优化结果、不开发 Agent 业务逻辑。
+原版 UI 实际进程为 `C:/RollBearing/RollBearing.exe`，显示 RollBearing；源代码 AssemblyVersion=1.0.0.0。资源求解器 RoBAS_v2.exe SHA `0449dbade9f97da768961e7cd8af3277b8a6fbf2bf8a2b2c9c23784caac11829`。本机 UI 二进制与源码是否同一构建、是否确切等于“RoBAS 8.11” **BLOCKED**，不能用文件名证明版本。
 
-## 2. 范围内工作
+静态源码提取不是执行 C#，JSON 的 source_references 是词法引用定位，可能包含注释/其他轴承/动力分支；不能单凭引用推断运行依赖。矩阵 SetAnalysisValue 限定 DGB 方法，getter/setter 与默认表达式均留证。RoBAS_v2 求解器计算核源码未提供，每个字段在求解核的实际读取/忽略条件仍 BLOCKED。
 
-### 2.1 原版源码审查
+调用链：`Controls/DeepGrooveBallServer/DeepGrooveBallBearingServer.cs` 的 onPropertyValueChanged → UpdateModelInServer → UpdateMaterial/UpdateLubricant → BaseBearing.SetAnalysisValue；Analyzing → BallBearingAnalysis.Solve → DeleteFile → generateAnalysisInputTxt → generateStaticAnalysisInputs → exe/DATA.txt，再启动 RoBAS_v2.exe。`Core/MachineElement.cs` 的基类 SetAnalysisValue 为空。未触发 Solve，因为它删除并重写原版 DATA 和输出。
 
-在可访问 RoBAS 源码的 Windows 环境中：
+## 2. 字段审计与五变量
 
-- 找到 DGB 拟静力学 DATA 生成入口和完整调用链。
-- 对 43 条记录逐字段定位 C# getter、setter、构造器默认值、SetAnalysisValue、材料/润滑数据库读取、BaseBC/BaseSolver 配置。
-- 记录赋值顺序、精度舍入、单位转换、枚举编码和条件分支。
-- 区分“代码中有默认值”和“该默认值适用于目标工况”；二者不是一回事。
-- 特别核对 rec 5A 五个优化变量字段的语义和内外圈顺序。
-- 不可访问源码/数据库的字段标记为 BLOCKED，不得根据字段名推测。
+324 个字段按主来源分组：USER_INPUT=41、ROBAS_DATABASE=34（本次实为 CSV）、DERIVED=25、OPTIMIZATION_VARIABLE=5、SOLVER_PROFILE=78、REFERENCE_PROFILE_UNVERIFIED=141、UNSUPPORTED_OR_UNKNOWN=0。后者为 0 仅因每个字段均有初始化/写出位置，绝不表示语义都已确认。类别是未来输入职责；不表示现有 API 全部暴露。所有非优化字段仍需按 gate 关闭确认、适用性、单位问题；不是“其余 319 项均完整”。
 
-### 2.2 SQLite 和原版资源审查
+|变量|DATA 物理记录/列（均 1-based）|原版赋值/精度|判定|
+|---|---|---|---|
+|Z|6 / 3 nRe|DGB.SetAnalysisValue:217 = Roller.RollerNum；整数；GetPltElemInd(nRe)同步输出索引|位置 VERIFIED，待优化|
+|Dw|11 / 1 bReDia|同方法:227 = Roller.BallDiameter；BallRoller getter 0.001 mm，再 BReDia setter /1000|位置 VERIFIED，待优化|
+|Dpw|11 / 2 pitchDia|同方法:228 = Roller.PitchDiameter；getter 0.01 mm，再 PitchDia setter /1000|位置 VERIFIED，待优化|
+|fo|11 / 5 raceCurFac1|BallBearingGeometry:125 标为外圈，但 RaceCurFac1 自动属性不连接 backing；构造器:43 写 0.52；DGB 未赋此值|外圈语义/位置 VERIFIED；优化到原版写出链 BLOCKED|
+|fi|11 / 6 raceCurFac2|同类:153 标为内圈，自动属性断链；构造器:44 写 0.54；DGB 未赋此值|内圈语义/位置 VERIFIED；优化到原版写出链 BLOCKED|
 
-- 列出数据库文件、表、字段、主键、单位、记录数量。
-- 定位材料、润滑剂、保持架、轴/座、热边界或其他实际存在的表。
-- 追踪原版 UI 从选项到数据库记录、再到 DATA 字段的完整映射。
-- 记录推荐记录的来源 ID、原始字段、转换公式和适用范围。
-- 数据库缺失属性必须显式登记，不能补造。
-- 资源文件版本和 SHA-256 应记录在审计报告中。
+Python geometry_updates 用外/内沟半径除 Dw 写 fo/fi；这不是原版 DGB 的有效赋值行为。原版 OuterRace.CurFac 默认0.54、InnerRace.CurFac默认0.52，与 DATA 的0.52/0.54顺序数值不同。不能为了“和案例相同”把 fo/fi 对调。矩阵中的值是 DATA 中原样观测值，不是认可的优化结果。
 
-### 2.3 原版 DGB 案例审查
+其他确认的问题：BallBearingGeometry.ShimThickness1 读写 freeIntCls；DATA 仍分别序列化 shimThickness1/freeIntCls。BaseBC 的可见 Mx/My、Rx/Ry 是独立自动属性，DATA 用 appMomY/appMomZ、appMis11/21/12/22；UI 值不能直接视为对应 DATA 已更新。Rpm1 setter 同时写 rpmRange21，Rpm2 写 rpmRange12，构造器初始值不执行这些 setter，故案例 rpm2=20000 与 rpmRange12=0 可以并存。温度转换调用缺少的 CSharpLib.MathMethod 实现，不能擅自认定为273.15；Lubricant 自己的黏温公式明确用273。
 
-至少选择一个与目标高速低载场景相关的原版 UI 案例；如果当前只有默认工况案例，明确说明覆盖限制。
+## 3. 数据库与保持架依赖
 
-- 保存原版 UI 生成的 DATA.txt、界面配置/案例描述和文件哈希。
-- 逐条比较 43 条记录。
-- 区分输入协议一致、字段来源一致、数值一致、物理工况等价这四个不同层次。
-- 不把不同几何或不同工况的 golden DATA 当作可互换模板。
+见 DATABASE_SCHEMA_AUDIT：7 个资源 SQLite 文件逐表实读；材料/润滑实际来自 CSV。材料选择只覆盖六项物性；4 个完整材料记录各6项+轴/座各5项，共34个 DATA 字段。rec8.6、strainLimit/hardness/wearCoeff/misis 等没有 CSV 查询来源。Lubricant 名称与黏温曲线存在，但未找到向 DATA 模型参数自动传值的调用。
 
-### 2.4 Bearing_CAD 现有能力审查
+DGB.SetAnalysisValue 分析保持架新建 StraightPocketCage，而 CAD 对象 Cage 是 StampingCage。StraightPocketCage 构造器按 public mm getter 顺序：pocket=round(1.004*Dw+0.12,1)，guideGap=0.6*(pocket-Dw)，OD=round(outerSidewall-guideGap,2)，ID=round(OD-0.6*Dw,2)，width 由 CalculateWidth 后 round(...,2)。外/内间隙、BPocCls1、两组 guide 随该几何派生，再通过 /1000 setter。guide clearance 依赖 InnerRace.OutsideDiameter；不是仅凭 d/D/B 可确定。d/5 和 D*1.14 是该源码构造分析轴/座的规则，未经用户安装条件确认，不可作为通用工程恒等式。
 
-重点检查：
+## 4. 实际 DGB 案例及逐字段比较
 
-- BallDataDocument 的 43 条记录布局和解析/序列化行为。
-- geometry_updates() 中 DGB 几何与保持架派生逻辑。
-- update_ball_data() 的 profile 依赖和更新范围。
-- robas_analysis.py 的工况、材料、润滑、solver 暴露字段。
-- profile 默认值继承、输入哈希、运行隔离和错误处理。
-- 当前 DGB CAD cage 与 RoBAS 分析 cage 的映射限制。
-- DGB 分析几何额外要求，例如分析内圈外径。
-- robas_results.py 的结果字段只作能力盘点；不在 PR-00 改结果解析。
+原始留存路径 `D:/RotorStudio/Bearing_CAD/Bearing_CAD/build/robas-solver01-acceptance-20261108/real-DGB/run-85ffea6353a545bc822c50a2b3ced583/DATA.txt`，SHA `b6610d150b0b8b05f0d024fe0c6fb90c1d4b270d5ef20f95398d48a6aa165a0f`。这是本机留存案例，本次未重新由 UI 生成；2026-11-08 的生成来源来自历史迁移文档，原始同次 UI 配置/截图和完整生成过程无法独立重建，标 BLOCKED。
 
-### 2.5 字段来源分类
+43 条记录、标签顺序、每列数目全部与 C# 静态序列化及 Python 布局核对，324 个原始值逐字段列入矩阵。序列化位置是一致证据；材料恰好等于构造器或 CSV 记录，不证明当时选了哪个记录。记录内容 d40/D68/B15 mm、Z11/Dw8.334/Dpw54 mm，外/内挡边59.02/49 mm；Fx4500/Fy0/Fz2000 N；外圈0/内圈20000 rpm；各温度323 K。不能将其认定为目标高速低载工况，更不能认定工程合格。
 
-每个字段必须归入一个主来源类别：
+独立公式追踪得到 pocket8.5、guideGap0.0996、cage OD58.92/ID53.92/width11 mm；CageCls2=4.92、pocket clearance0.083、guide width2.42/pos5.5/clearance4.92 mm，与案例对应项一致。完整数值回读与 roundtrip 对比见测试。原版构造器曲率0.52/0.54与 CAD 沟道曲率模式不是等价输入。没有宣称324项均可从用户需求独立重建。
 
-- USER_INPUT：用户明确提供或确认。
-- ROBAS_DATABASE：来自原版数据库记录。
-- DERIVED：由已审核的确定性公式计算。
-- OPTIMIZATION_VARIABLE：Dw、Z、Dpw、fi、fo，留给后续优化模块。
-- SOLVER_PROFILE：求解模式/数值配置，由明确审核过的 profile 或固定配置提供。
-- REFERENCE_PROFILE_UNVERIFIED：当前只知道从原版 DATA 继承，来源/适用性尚未充分核实。
-- UNSUPPORTED_OR_UNKNOWN：无可靠来源或当前不支持。
+## 5. Bearing_CAD builder/API 能力审查
 
-不要用模糊的 DEFAULT 类别掩盖不同来源。
+`bearing_cad/robas_data.py` DataDocument.parse 验43行/标签/每列/有限数值、Mode=-1、kUnit/kBrg；render 输出CRLF，保留数值token；read记录原文件SHA。没有逐字段来源/确认语义或工程适用性校验。
 
-## 3. 必须交付的文件
+`robas_ball_input.py` BallDataDocument、geometry_updates、update_ball_data 可复用：显式 reference_data、geometry_mode（legacy_data/cad_geometry）、几何冲突显式确认、分析内圈OD、工况/材料/润滑覆盖、五项 analysis_parameters_mm、速度setter联动。仍强制先读完整 profile；空模板/缺失字段不能直接解析。solver_updates只允许nStps。底层 operating/material/lubricant 字段 override 允许范围见 robas_data.profile_overrides；提供接口不代表请求方有可信值。
 
-1. docs/parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md
-   - 43 条记录逐条/逐字段清单。
-   - 每个字段的单位、来源类别、原版 C# 位置、数据库映射、依赖、当前代码映射、确认要求、状态。
-   - 无法核实的字段明确标记 BLOCKED。
+`robas_analysis.py` _CONDITIONS 仅 load_x/y/z_n、outer/inner_speed_rpm，另 free_clearance_mm；_MATERIAL_VALUES 仅6项（轴/座5项）、_CAGE_VISCOSITIES仅pocket/guide且模型码=2，solver仅load_steps。load_analysis_profiles要求operator manifest中的ID、source、SHA、相对路径；_check_reference校验哈希与固定输出文件名；隔离运行保留输入哈希及inherited/effective工况。这能追踪profile身份，不能表达用户逐字段确认。operating_conditions可为空、继承被报告，但仍可能运行。
 
-2. docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md
-   - PR 任务、审计方法、发现、缺口、决策和验收结果。
+未独立生成项：全部未覆盖 solver/控制标志、寿命/接触属性、剩余材料属性、润滑牵引/油膜、温度、力矩/错位、配合、热边界/扫描/初值/重力及未覆盖保持架模型字段等，逐项见矩阵。run_analysis拒绝显式 CAD cage（request.cage非空）；analysis_geometry强制inner_race_od_mm。不能仅扩展对话问题就宣称这些数据链已实现。
 
-3. 更新 docs/00_MASTER_PLAN.md
-   - 仅更新已有证据的状态；未完成项目继续标为待审计。
+后续接口建议仅为审计产物：显式字段级 source/confirmation/dependency 输入；缺项返回对象；与已锁定 profile 的允许继承清单；单位转换和构建分离；在 StateManager 中维护状态，保持既有 PR-01 安全契约（如有，后续实现前核验，本仓库当前无此业务实现）。本 PR 不改变任何架构。编排按项目要求 Python3.11+/Pydantic/LangGraph，不在 PR-00 另行重选框架。
 
-4. 更新 README.md
-   - 项目定位、当前阶段、文档入口，说明当前没有 Agent/优化实现。
+## 6. 未来对话必须问、可查询、可派生
 
-## 4. 审计结论必须回答
+|职责|必需内容 / 条件|缺失处理|
+|---|---|---|
+|用户固定边界|DGB、d/D/B；额外分析挡边、内圈OD、实际轴/座尺寸及安装结构|缺失返回具体字段；d/D/B不能代替分析几何|
+|用户运行条件|带坐标定义的载荷、力矩/位移控制和约束、外/内圈转速、重力方向；零值也需明确来源|坐标/符号未确认即BLOCKED；UI假连接项不可默认为已设置|
+|用户安装与热边界|游隙、外圈间隙/内圈过盈、温度及温标、错位/残余应力、冷却/流量/压力/HTC等适用条件|用户不知道时只能推荐可溯源配置，接受前unconfirmed|
+|工程配置选择|滚动体/内外圈/保持架/轴/座材料；润滑剂与模型；保持架构型、分析profile适用范围|选择名称不足以填寿命及模型参数；需审核profile或工程输入|
+|自动查询|确定版本CSV中的六项材料物性/润滑基础曲线；SQLite型号及确实存在的几何规则|保留DB/CSV哈希、自然键/主键、列、原始单位；缺行/重名/异常值失败|
+|确定性派生候选|经审核的getter单位链、保持架/分析几何公式、输出元素索引；黏温物性仅在公式适用性审核后|记录公式版本、输入依赖；上游变化失效；依赖优化量则保持待计算|
+|受信系统配置|Mode/kUnit/kBrg、数值步长/控制开关/输出命名等审核profile|不让用户凭空提供内部码；没有适用profile则BLOCKED|
+|仅设计上下文|应用、工况周期、精度/密封/成本偏好及寿命/应力/温升目标|记录需求来源；不得虚构对应DATA字段或审核阈值|
 
-### A. 对话必须收集什么？
+## 7. 输入完整性 gate（规范，尚未开发）
 
-分组列出用户固定几何/安装边界、运行工况、确认的工程配置、数据库选择项、公式派生项、仅属于上下文且不进入 DATA 的项目。每项说明必填条件和缺失时处理方式。
+模板对象使用明确 field ID=(record_index,field)、value=null、source_kind/source_ref、unit、confirmed/unconfirmed、dependency/formula版本；五优化槽保留null及OPTIMIZATION_VARIABLE。OPT_PENDING不是第三种业务确认状态。RoBAS DATA不支持null占位：有任何缺项时禁止序列化可执行DATA；不能写空串、零或profile旧值来占位。
 
-### B. 哪些字段不能由对话直接解决？
+TEMPLATE_READY必须：43记录/324字段身份与顺序固定；非优化必需输入有限/单位/来源明确；用户可决定值全部confirmed；受信系统值有审核规则版本；profile有ID/SHA/逐字段允许继承清单及适用性确认；CSV/DB有哈希/记录键/列/单位/转换；派生值有公式及完整依赖；无冲突/BLOCKED。依赖五变量的派生项可在模板阶段标明待优化依赖，但不能声称已得到数值；RUNNABLE_READY还要求五变量及全部依赖已填并重算、取整/枚举/数组/模型条件校验通过。
 
-列出必须由受信 profile、数据库、公式或 solver 配置提供的字段，并说明数据源是否存在、是否需后续开发。
+所有324个协议位置必须在RUNNABLE阶段有可溯源值，即使某模式忽略该字段也须有经审核的固定编码；在缺求解核文档时不自行省略。未来负面检查至少包括：空/NaN/Inf、单位不明、坐标不明、未确认零值、未知/重名材料、缺物性、profile哈希变化、模型码与物性/温度不符、nRe索引不符、几何/配合冲突、旧依赖未失效、曲率/垫片自动属性断链。缺项报告须列 field ID、原因、缺失来源、所需行动；任一阻断状态为INCOMPLETE。序列化或预校核通过不代表收敛、DLAP性能验证或工程验收。
 
-### C. 五个优化变量如何留空？
+## 8. 自审问题清单与准入
 
-明确模板如何表达待优化字段。不得生成不符合原版协议的空 DATA 记录；若 RoBAS 不接受占位符，应定义模板对象/占位元数据，等优化模块补齐五个值后再序列化最终 DATA。
+|ID|未解决问题 / 影响|状态 / 所需证据|
+|---|---|---|
+|B01|UI二进制/源码/RoBAS8.11构建身份|BLOCKED：需版本或构建可追溯证明|
+|B02|fo/fi backing不同步及ShimThickness1错误；Mx/My/Rx/Ry与DATA断链|BLOCKED：工程人员明确采用的映射策略；本PR仅报告，不修原版|
+|B03|求解核每字段读取、枚举条件、未注单位与坐标符号|BLOCKED：原版协议手册/计算核源码/受控单变量实验|
+|B04|材料寿命/接触属性、异常CSV值、推荐适用性|BLOCKED：可靠材料证书/标准版本及专业审核|
+|B05|润滑CSV与rec9.7/10的有效传值规则、热边界模型|BLOCKED：明确公式/单位/模型数据及适用性审核|
+|B06|目标高速低载案例及同次UI配置-生成DATA证据|BLOCKED：现留存仅默认工况；本次未运行覆盖原版数据的Solve|
+|B07|分析保持架与CAD保持架一致性、额外几何及轴座假设|BLOCKED：工程profile与安装/结构输入确认|
+|B08|自动属性温标转换依赖CSharpLib实现缺失|BLOCKED：实现/受控测试；不推测273或273.15|
+|B09|当前Python API逐字段确认/来源不完备|NOT_IMPLEMENTED；后续PR范围待本次人工验收|
+|B10|API pytest缺cadquery；当前环境为Python3.14|BLOCKED：完整CAD测试环境；不安装/重构本次范围外依赖|
 
-### D. 何时可以说“输入准备完成”？
-
-定义机器可检查的 gate：
-
-- 43 条记录布局合法。
-- 除五个优化变量外，所有必需字段有非空、有限、单位明确且可追溯的值。
-- 所有用户可决定字段为 confirmed。
-- profile 继承值有明确 profile ID、哈希、来源和适用性确认。
-- 派生字段有公式/版本/输入依赖。
-- 数据库值有数据库版本、记录 ID 和字段映射。
-- 无未解决冲突。
-- 未知/未确认值未被静默当成有效输入。
-
-任一条件不满足，状态必须为 INCOMPLETE，并返回字段级缺项原因。
-
-## 5. 明确不做
-
-- 不开发对话 Agent、聊天 UI 或 LangGraph 工作流。
-- 不开发 DesignBrief 业务代码或持久化服务。
-- 不实现材料/润滑推荐算法。
-- 不实现优化算法、采样、遗传算法或代理模型。
-- 不实现新求解器输入映射代码。
-- 不修改原版 DATA、SQLite、EXE 或 CAD 架构。
-- 不新增/修改拟静力学结果解析。
-- 不用猜测值补齐未核实字段。
-- 不自动合并本 PR。
-
-## 6. 验收标准
-
-- [ ] 43 条记录和所有字段完整列出，字段数量与 BallDataDocument 一致。
-- [ ] 每个字段有主来源类别；无来源的明确 BLOCKED。
-- [ ] 原版 C# 赋值位置和数据库映射有可复核定位。
-- [ ] 单位、精度、转换和条件分支有来源。
-- [ ] 五个优化变量 DATA 字段映射经原版源码核对。
-- [ ] 至少一个原版 DGB DATA 案例逐字段比较，差异分类清楚。
-- [ ] 当前 Python builder/API 能力和限制逐项说明。
-- [ ] profile 继承字段不会被误标为用户已确认。
-- [ ] 明确输入完成 gate 和字段级缺项报告。
-- [ ] README 和 MASTER_PLAN 状态一致。
-- [ ] 本 PR 无业务代码变更，仓库已有文档检查通过。
-- [ ] 用户审阅通过后才合并；合并后才开始 PR-01。
-
-## 7. Codex 完成报告格式
-
-1. 实际审查的 RoBAS 源码、数据库和原版 DATA 文件（路径、版本、哈希）。
-2. 43 条记录字段映射表位置。
-3. 用户输入、数据库、派生、优化变量、profile 和未知字段数量。
-4. 仍阻断“除五个优化变量外可生成完整输入”的字段。
-5. 仅为构造器默认、尚未证明适用的字段。
-6. Bearing_CAD 可复用能力和后续修改接口。
-7. 自动测试/文档检查结果。
-8. PR 链接和分支。等待用户验收，不合并、不开始 PR-01。
+验收自审：43/324完整性、每字段源码/初始化/属性/案例定位、数据库实际结构与来源、Python覆盖范围、确认gate已记录。单位/分支/五变量有效写入链/真实目标案例仍有上述阻断，故不勾选“工程协议冻结/原版UI同次生成闭环已通过”。审计工具测试与已有测试实际结果见VALIDATION。PR-00完成度为UNIT_TESTED（审计工件一致性）；完整工程输入链NOT_IMPLEMENTED；REAL_ENV_VERIFIED仅限本机UI只读观察与数据只读检查，不扩展至求解；ENGINEERING_REVIEWED未达到。不得合并，不开始PR-01，等待人工验收和阻断项处理决定。
