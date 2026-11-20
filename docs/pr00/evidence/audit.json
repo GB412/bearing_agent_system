@@ -11734,7 +11734,7 @@
       "field": "roomTemp",
       "owner": "BC",
       "category": "USER_INPUT",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:136",
       "default": [
         {
@@ -12597,7 +12597,7 @@
       "field": "hsngTemp",
       "owner": "BC",
       "category": "USER_INPUT",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:142",
       "default": [
         {
@@ -12639,7 +12639,7 @@
       "field": "shftTemp",
       "owner": "BC",
       "category": "USER_INPUT",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:142",
       "default": [
         {
@@ -12681,7 +12681,7 @@
       "field": "raceTemp1",
       "owner": "BC",
       "category": "USER_INPUT",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:142",
       "default": [
         {
@@ -12723,7 +12723,7 @@
       "field": "raceTemp2",
       "owner": "BC",
       "category": "USER_INPUT",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:142",
       "default": [
         {
@@ -12765,7 +12765,7 @@
       "field": "reTemp",
       "owner": "BC",
       "category": "USER_INPUT",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:142",
       "default": [
         {
@@ -12807,7 +12807,7 @@
       "field": "cageTemp",
       "owner": "BC",
       "category": "USER_INPUT",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:142",
       "default": [
         {
@@ -13397,7 +13397,7 @@
       "field": "baseTemp",
       "owner": "BC",
       "category": "REFERENCE_PROFILE_UNVERIFIED",
-      "unit": "K（UI ℃；MathMethod 换算实现 BLOCKED）",
+      "unit": "K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）",
       "serialize_ref": "Core/BallBearing/BallBearingAnalysis.cs:148",
       "default": [
         {
@@ -15500,6 +15500,11 @@
       "path": "C:\\RollBearing\\Resource\\materialDBDefault.csv",
       "sha256": "2a5d5153e07fd2d2e8ffbe62247f1ff052198cf42d33cb523c5b896aff3259a3",
       "bytes": 772
+    },
+    {
+      "path": "D:\\RotorStudio\\ui_rotorstudio-9857bcc7afce658be15dfd2b559a55cb12b55bbd\\NetLib\\CSharpLib\\FileOperation.cs",
+      "sha256": "3b9af6264edac3005304052b5de38d6833aba9c7d9a5c309b71536ba40b8aece",
+      "bytes": 18429
     }
   ],
   "databases": [

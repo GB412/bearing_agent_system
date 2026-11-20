@@ -21,3 +21,7 @@
 本仓库原先没有现成pytest/文档CI。本次新增的是审计工具和工件检查，不是Agent或输入构建功能。全套API测试仍BLOCKED。
 
 最终重跑：PR-00审计pytest **12 passed in 0.09s**；git diff --check通过（无输出）。原版资源/源码哈希检查通过。
+
+补查更正：最初误将RoBAS.Utility.MathMethod温标转换记为缺失；本地源码实际存在，现已修正B08并新增静态回归检查；增加C#格式化参数展开后与Python全部324列顺序比较。补查CSharpLib.FileOperation.cs:172的CSV读取链并纳入哈希；原12项测试记录对应此前工件，更新工件测试另记。
+
+温标/CSV补查后的独立验证：14 passed in 0.10s；git diff --check通过。14项包含全部324列C#参数顺序逐项对照、±273.15转换与润滑+273差异；没有重新运行EXE或完整API。

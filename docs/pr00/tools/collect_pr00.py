@@ -104,7 +104,7 @@ def main():
             if name=='freeConAngDeg':unit='deg'
             units={'density':'kg/m³','elasticModules':'Pa','poissonRatio':'1','thermalExpansion':'1/K','specificHeat':'J/kg/K','conductivity':'W/m/K','appLoadX':'N','appLoadY':'N','appLoadZ':'N','appMomY':'N·m','appMomZ':'N·m','rpm1':'rpm','rpm2':'rpm'}
             unit=units.get(name,unit)
-            if i==31 or name in ('roomTemp','baseTemp'):unit='K（UI ℃；MathMethod 换算实现 BLOCKED）'
+            if i==31 or name in ('roomTemp','baseTemp'):unit='K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）'
             if name.startswith('gravityVec'):unit='m/s²'
             if name.startswith('appDisp') or name in ('raceFit1','raceFit2'):unit='m'
             pyhits=[f'robas_ball_input.py:{n}: {line.strip()}' for n,line in enumerate(cadtext.splitlines(),1) if f'"{name}"' in line]
@@ -118,6 +118,7 @@ def main():
         inventory += [{'path':str(p),'sha256':sha(p),'bytes':p.stat().st_size} for p in sorted(base.rglob('*.cs'))]
     resources = list((RES/'Data').glob('*.db'))+list((RES/'Resource').glob('*DB*.csv'))+[RES/'exe/RoBAS_v2.exe',CASE,CAD/'bearing_cad/robas_data.py',CAD/'bearing_cad/robas_ball_input.py',CAD/'bearing_cad/robas_analysis.py',Path('C:/RollBearing/RollBearing.exe'),Path('C:/RollBearing/exe/DATA.txt')]
     resources += list(Path('C:/RollBearing/Data').glob('*.db'))+list(Path('C:/RollBearing/Resource').glob('*DB*.csv'))
+    resources += [RES.parent/'CSharpLib/FileOperation.cs']
     inventory += [{'path':str(p),'sha256':sha(p),'bytes':p.stat().st_size} for p in resources if p.exists()]
     databases=[]
     for p in sorted((RES/'Data').glob('*.db')):

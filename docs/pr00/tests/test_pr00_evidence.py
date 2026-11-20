@@ -108,6 +108,27 @@ def test_local_serialization_position_is_backing_field_not_property():
         key=re.sub(r'(?<=kStaticConstraint)\d$|(?<=kPltElemInd)\d$|(?<=iCageGuide)\d$','',f['field'])
         assert f'{f["owner"]}.{key}' in lines[line-1]
 
+def test_local_csharp_argument_order_matches_all_324_python_columns():
+    require_local()
+    lines=Path('D:/RotorStudio/RoBAS/Core/BallBearing/BallBearingAnalysis.cs').read_text(encoding='utf-8-sig').splitlines()
+    for record in range(1,44):
+        fields=[f for f in F if f['record']==record]
+        line=lines[int(fields[0]['serialize_ref'].rsplit(':',1)[1])-1]
+        actual=[]
+        for key in re.findall(r'(?:Solver|Geometry|\w*Material|BC|Lubricant)\.(\w+)',line):
+            count={'kStaticConstraint':5,'kPltElemInd':6,'iCageGuide':4}.get(key)
+            actual.extend([key+str(n) for n in range(1,count+1)] if count else [key])
+        assert actual==[f['field'] for f in fields]
+
+def test_local_temperature_conversion_is_explicit_and_differs_from_lubricant_fit():
+    require_local()
+    source=Path('D:/RotorStudio/RoBAS/Utility/MathMethod.cs').read_text(encoding='utf-8-sig')
+    assert 'return C + 273.15;' in source
+    assert 'return K - 273.15;' in source
+    lubricant=Path('D:/RotorStudio/RoBAS/Core/Lubricant/Lubricant.cs').read_text(encoding='utf-8-sig')
+    assert 'double tk = currentTemperture + 273;' in lubricant
+    assert all('±273.15' in f['unit'] for f in F if f['record']==32)
+
 def test_local_golden_roundtrip_compares_every_numeric_and_text_token():
     p=require_local()
     cad=Path('D:/RotorStudio/Bearing_CAD/Bearing_CAD')

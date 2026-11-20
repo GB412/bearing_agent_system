@@ -391,3 +391,7 @@ SHA-256 `4b0e9c56a4d216cf952ce13e31676c4e509130530b872d724a2dfe4c6186878f`
 |防尘盖89|109|model:VARCHAR(50):pk1; DdF:VARCHAR(20):pk0; DdF_h:VARCHAR(20):pk0; DdF_l:VARCHAR(20):pk0; dF:VARCHAR(20):pk0; dF_h:VARCHAR(20):pk0; DdF1:VARCHAR(20):pk0; DdF2:VARCHAR(20):pk0; DdF3:VARCHAR(20):pk0; BF:VARCHAR(20):pk0; BF1:VARCHAR(20):pk0; BF2:VARCHAR(20):pk0; SF:VARCHAR(20):pk0; alfaF:VARCHAR(20):pk0; hF:VARCHAR(20):pk0; NF:VARCHAR(20):pk0; RF:VARCHAR(20):pk0; RF1:VARCHAR(20):pk0|
 |非装配倒角允差|21|公称尺寸:REAL:pk1; 上偏差:VARCHAR(20):pk0; 下偏差:VARCHAR(20):pk0|
 |非装配倒角尺寸|15|rsmin:REAL:pk1; r3:VARCHAR(20):pk0; r3_h:VARCHAR(20):pk0; r3_l:VARCHAR(20):pk0; r8:VARCHAR(20):pk0; r8_h:VARCHAR(20):pk0; r8_l:VARCHAR(20):pk0|
+
+## CSV读取补充证据
+
+本机 `D:/RotorStudio/ui_rotorstudio-9857bcc7afce658be15dfd2b559a55cb12b55bbd/NetLib/CSharpLib/FileOperation.cs:172` 的 FileIO.Csv2DataTable 先 DetectTextEncoding，再读首行拆列（逗号/Tab/分号），数据按同样分隔符拆分并Trim。遇行异常会返回已读的部分表；未来adapter应检查完整性并失败关闭，不沿用这种部分成功。该文件哈希已纳入audit.json，不修改原实现。

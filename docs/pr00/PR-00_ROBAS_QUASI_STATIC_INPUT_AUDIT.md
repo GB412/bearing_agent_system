@@ -31,7 +31,7 @@
 
 Python geometry_updates 用外/内沟半径除 Dw 写 fo/fi；这不是原版 DGB 的有效赋值行为。原版 OuterRace.CurFac 默认0.54、InnerRace.CurFac默认0.52，与 DATA 的0.52/0.54顺序数值不同。不能为了“和案例相同”把 fo/fi 对调。矩阵中的值是 DATA 中原样观测值，不是认可的优化结果。
 
-其他确认的问题：BallBearingGeometry.ShimThickness1 读写 freeIntCls；DATA 仍分别序列化 shimThickness1/freeIntCls。BaseBC 的可见 Mx/My、Rx/Ry 是独立自动属性，DATA 用 appMomY/appMomZ、appMis11/21/12/22；UI 值不能直接视为对应 DATA 已更新。Rpm1 setter 同时写 rpmRange21，Rpm2 写 rpmRange12，构造器初始值不执行这些 setter，故案例 rpm2=20000 与 rpmRange12=0 可以并存。温度转换调用缺少的 CSharpLib.MathMethod 实现，不能擅自认定为273.15；Lubricant 自己的黏温公式明确用273。
+其他确认的问题：BallBearingGeometry.ShimThickness1 读写 freeIntCls；DATA 仍分别序列化 shimThickness1/freeIntCls。BaseBC 的可见 Mx/My、Rx/Ry 是独立自动属性，DATA 用 appMomY/appMomZ、appMis11/21/12/22；UI 值不能直接视为对应 DATA 已更新。Rpm1 setter 同时写 rpmRange21，Rpm2 写 rpmRange12，构造器初始值不执行这些 setter，故案例 rpm2=20000 与 rpmRange12=0 可以并存。温度转换实际由 RoBAS.Utility.MathMethod 实现（Utility/MathMethod.cs:100/110），C→K加273.15，K→C减273.15；Lubricant 自己的黏温公式明确用273。最初将此项误记为缺外部实现，已补查并追加更正。
 
 ## 3. 数据库与保持架依赖
 
@@ -91,7 +91,7 @@ TEMPLATE_READY必须：43记录/324字段身份与顺序固定；非优化必需
 |B05|润滑CSV与rec9.7/10的有效传值规则、热边界模型|BLOCKED：明确公式/单位/模型数据及适用性审核|
 |B06|目标高速低载案例及同次UI配置-生成DATA证据|BLOCKED：现留存仅默认工况；本次未运行覆盖原版数据的Solve|
 |B07|分析保持架与CAD保持架一致性、额外几何及轴座假设|BLOCKED：工程profile与安装/结构输入确认|
-|B08|自动属性温标转换依赖CSharpLib实现缺失|BLOCKED：实现/受控测试；不推测273或273.15|
+|B08|温标转换曾误记为缺外部源码，现已补查|CLOSED_SOURCE_CHECK：Utility/MathMethod.cs:100/110，±273.15；静态回归检查通过，不等于UI构建已验明|
 |B09|当前Python API逐字段确认/来源不完备|NOT_IMPLEMENTED；后续PR范围待本次人工验收|
 |B10|API pytest缺cadquery；当前环境为Python3.14|BLOCKED：完整CAD测试环境；不安装/重构本次范围外依赖|
 

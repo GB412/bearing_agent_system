@@ -394,7 +394,7 @@
 
 |列|字段 / 对象|单位|主来源|C# 序列化；属性 / 默认 / 赋值依赖|数据库 / Python|案例值|确认 / 状态|
 |---:|---|---|---|---|---|---|---|
-|1|roomTemp / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:136；Core/BaseBC.cs:170 RoomTemp；默认 Core/BaseBC.cs:92 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|1|roomTemp / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:136；Core/BaseBC.cs:170 RoomTemp；默认 Core/BaseBC.cs:92 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
 |2|raceFit1 / BC|m|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:136；Core/BaseBC.cs:178 RaceFit1；默认 Core/BaseBC.cs:93 = 10e-6；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|1E-05|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
 |3|raceFit2 / BC|m|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:136；Core/BaseBC.cs:186 RaceFit2；默认 Core/BaseBC.cs:94 = 50e-6；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|5E-05|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
 |4|angVelOrt / BC|BLOCKED: 原版无明确单位注释/需协议手册|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:136；Core/BaseBC.cs:193 AngVelOrt；默认 Core/BaseBC.cs:95 = 180.0；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|180|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
@@ -430,12 +430,12 @@
 
 |列|字段 / 对象|单位|主来源|C# 序列化；属性 / 默认 / 赋值依赖|数据库 / Python|案例值|确认 / 状态|
 |---:|---|---|---|---|---|---|---|
-|1|hsngTemp / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:463 HsngTemp；默认 Core/BaseBC.cs:120 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
-|2|shftTemp / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:471 ShftTemp；默认 Core/BaseBC.cs:121 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
-|3|raceTemp1 / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:479 RaceTemp1；默认 Core/BaseBC.cs:122 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
-|4|raceTemp2 / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:487 RaceTemp2；默认 Core/BaseBC.cs:123 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
-|5|reTemp / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:495 ReTemp；默认 Core/BaseBC.cs:124 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
-|6|cageTemp / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:503 CageTemp；默认 Core/BaseBC.cs:125 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|1|hsngTemp / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:463 HsngTemp；默认 Core/BaseBC.cs:120 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|2|shftTemp / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:471 ShftTemp；默认 Core/BaseBC.cs:121 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|3|raceTemp1 / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:479 RaceTemp1；默认 Core/BaseBC.cs:122 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|4|raceTemp2 / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:487 RaceTemp2；默认 Core/BaseBC.cs:123 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|5|reTemp / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:495 ReTemp；默认 Core/BaseBC.cs:124 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|6|cageTemp / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|USER_INPUT|Core/BallBearing/BallBearingAnalysis.cs:142；Core/BaseBC.cs:503 CageTemp；默认 Core/BaseBC.cs:125 = 323；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|323|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
 
 ## 33. rec 9.2
 
@@ -465,7 +465,7 @@
 
 |列|字段 / 对象|单位|主来源|C# 序列化；属性 / 默认 / 赋值依赖|数据库 / Python|案例值|确认 / 状态|
 |---:|---|---|---|---|---|---|---|
-|1|baseTemp / BC|K（UI ℃；MathMethod 换算实现 BLOCKED）|REFERENCE_PROFILE_UNVERIFIED|Core/BallBearing/BallBearingAnalysis.cs:148；Core/BaseBC.cs:688 BaseTemp；默认 Core/BaseBC.cs:146 = 298；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|298|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
+|1|baseTemp / BC|K（UI ℃；Utility/MathMethod.cs:100/110，±273.15）|REFERENCE_PROFILE_UNVERIFIED|Core/BallBearing/BallBearingAnalysis.cs:148；Core/BaseBC.cs:688 BaseTemp；默认 Core/BaseBC.cs:146 = 298；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|298|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
 |2|cFlowRate / BC|BLOCKED: 原版无明确单位注释/需协议手册|REFERENCE_PROFILE_UNVERIFIED|Core/BallBearing/BallBearingAnalysis.cs:148；Core/BaseBC.cs:695 CFlowRate；默认 Core/BaseBC.cs:147 = 1.0；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|1|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
 |3|cPres / BC|BLOCKED: 原版无明确单位注释/需协议手册|REFERENCE_PROFILE_UNVERIFIED|Core/BallBearing/BallBearingAnalysis.cs:148；Core/BaseBC.cs:709 CPres；默认 Core/BaseBC.cs:148 = 0.0；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|0|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
 |4|reHTC / BC|BLOCKED: 原版无明确单位注释/需协议手册|REFERENCE_PROFILE_UNVERIFIED|Core/BallBearing/BallBearingAnalysis.cs:148；Core/BaseBC.cs:723 ReHTC；默认 Core/BaseBC.cs:149 = 0.0；SetAnalysisValue 未赋此字段|无已证实 DATA 数据库直连；参考 profile 保留；底层显式 override 能力见报告|0|用户确认数值/选择，或工程审核受信规则/profile；案例值不等于确认；BLOCKED|
