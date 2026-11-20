@@ -2,7 +2,7 @@
 
 更新：2026-11-20。开发前核对实际分支与git rev-parse HEAD；不得把文档中的业务基线当当前HEAD。
 
-当前仓库GB412/bearing_agent_system，GitHub PR#1；阶段PR-00；分支docs/pr-00-robas-quasi-static-input-audit；修改业务基线02861ea09e77906f4360ed1e3e9c7268a0c9ea1f。当前修改未提交，提交引用见追加变更记录。原基线没有本文件，本次补建。
+当前仓库GB412/bearing_agent_system，GitHub PR#1；阶段PR-00；分支docs/pr-00-robas-quasi-static-input-audit；修改业务基线02861ea09e77906f4360ed1e3e9c7268a0c9ea1f。审计工件提交为 2b286f1c671cc581fb0027544d9b61db6554624b，后续记录提交引用见变更记录。原基线没有本文件，本次补建。
 
 事实、进度和问题入口：[MASTER_PLAN](00_MASTER_PLAN.md) 第10/14节；[PR-00报告](pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) B01–B10；[测试证据](pr00/VALIDATION.md)；[变更记录](PROJECT_CHANGELOG.md)。状态词汇与证据分级见MASTER_PLAN第14节。
 

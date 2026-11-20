@@ -1,7 +1,7 @@
 # PR-00：DGB RoBAS 拟静力学工程输入审计
 
 - 日期：2026-11-20（Asia/Shanghai）；GitHub PR **#1**，项目阶段 **PR-00**，两者分别编号。
-- 分支：`docs/pr-00-robas-quasi-static-input-audit`；业务基线 `02861ea09e77906f4360ed1e3e9c7268a0c9ea1f`。本次修改未提交，实际提交引用将在 PROJECT_CHANGELOG 追加。
+- 分支：`docs/pr-00-robas-quasi-static-input-audit`；业务基线 `02861ea09e77906f4360ed1e3e9c7268a0c9ea1f`。审计工件已提交 2b286f1c671cc581fb0027544d9b61db6554624b；提交引用在 PROJECT_CHANGELOG 追加。
 - 结论：43 记录/324 字段的源码及资源盘点完成；工程输入协议冻结 **BLOCKED**，等待人工验收。没有 Agent/优化实现，没有修改原版 DATA/SQLite/EXE 或 Bearing_CAD 架构，没有开始 PR-01。
 - [逐字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)、[原始定位证据](evidence/audit.json)、[全表结构](DATABASE_SCHEMA_AUDIT.md)、[UI 观察](UI_OBSERVATIONS.md)、[验证结果](VALIDATION.md)。
 
