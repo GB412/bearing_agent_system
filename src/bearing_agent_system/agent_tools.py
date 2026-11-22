@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from .brief_service import DesignBriefService
 from .models import TrustedContext, UpdateBatch
+from .parameter_catalog import FIELDS
 
 
 @dataclass
@@ -104,6 +105,24 @@ class TurnTools:
             return context._run(
                 "update_design_brief", {"operation": operation, "changes": changes}
             )
+
+        # One source of truth: show the model exactly the paths the validator accepts.
+        update_design_brief.description += (
+            "\n可写 path（必须完整匹配，不能写容器名或自造字段）："
+            + "、".join(FIELDS)
+            + "\n几何上限示例 changes 项："
+            '{"path":"requirements.geometric_bounds[]",'
+            '"value":{"field":"dimensions.D_mm","operator":"<=","value":62,"unit":"mm"},'
+            '"evidence_span":"外径不能超过62mm"}'
+            "\n寿命下限示例 changes 项："
+            '{"path":"requirements.constraints[]",'
+            '"value":{"field":"life_hours","operator":">=","value":20000,"unit":"h"},'
+            '"evidence_span":"寿命至少20000小时"}'
+            "\n游隙示例 changes 项："
+            '{"path":"engineering.clearance.group","value":"CN",'
+            '"evidence_span":"游隙选CN"}'
+            "\n以上 evidence_span 仅是示例；真实调用必须引用当前用户消息的原文。"
+        )
 
         @tool("get_design_status")
         def get_design_status() -> dict[str, Any]:
