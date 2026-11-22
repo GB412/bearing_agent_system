@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from .checks import get_design_status
@@ -37,10 +39,18 @@ class SQLiteDesignBriefStore:
                 )"""
             )
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """Commit/rollback the transaction and always release the SQLite handle."""
         conn = sqlite3.connect(self.database_path, timeout=5)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            # sqlite3.Connection.__exit__ does not close the connection.
+            # On Windows, a leaked handle prevents TemporaryDirectory cleanup.
+            conn.close()
 
     @staticmethod
     def _session_id(session_id: str) -> str:
