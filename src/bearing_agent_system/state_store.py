@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from uuid import uuid4
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -71,7 +72,24 @@ class SQLiteDesignBriefStore:
                 (session_id, 0, brief.model_dump_json()),
             )
             return brief, 0
-        return DesignBrief.model_validate_json(row["payload_json"]), row["revision"]
+        brief = DesignBrief.model_validate_json(row["payload_json"])
+        # Existing PR-01 databases may contain requirements without IDs.
+        if SQLiteDesignBriefStore._ensure_requirement_ids(brief):
+            conn.execute(
+                "UPDATE design_briefs SET payload_json=? WHERE session_id=?",
+                (brief.model_dump_json(), session_id),
+            )
+        return brief, row["revision"]
+
+    @staticmethod
+    def _ensure_requirement_ids(brief: DesignBrief) -> bool:
+        migrated = False
+        for field in ("constraints", "preferences", "geometric_bounds"):
+            for requirement in getattr(brief.requirements, field):
+                if requirement.id is None:
+                    requirement.id = f"req-{uuid4().hex[:16]}"
+                    migrated = True
+        return migrated
 
     def get_brief(self, session_id: str) -> tuple[DesignBrief, int]:
         session_id = self._session_id(session_id)
@@ -99,12 +117,42 @@ class SQLiteDesignBriefStore:
                     spec = FIELDS[change.path]
                     previous = get_path_value(edited, change.path)
                     if spec.kind == "requirement":
-                        if batch.operation != "set":
-                            raise InvalidChange("Requirement lists currently support append only")
-                        if new_value not in previous:
+                        if batch.operation == "set":
+                            if change.target_id is not None:
+                                raise InvalidChange("New requirement cannot specify a target_id")
+                            duplicate = any(self._requirement_signature(x)
+                                            == self._requirement_signature(new_value)
+                                            for x in previous)
+                            if duplicate:
+                                continue
+                            # A new upper/lower limit for the same field must replace
+                            # the old one, not silently accumulate contradictory limits.
+                            if any(x.field == new_value.field and x.operator == new_value.operator
+                                   for x in previous):
+                                raise InvalidChange(
+                                    "Requirement on this field/operator already exists; use replace"
+                                )
+                            new_value.id = f"req-{uuid4().hex[:16]}"
                             previous.append(new_value)
                             changed_paths.append(change.path)
+                            continue
+                        if not change.target_id:
+                            raise InvalidChange("Requirement replace/withdraw needs target_id")
+                        matches = [i for i, item in enumerate(previous)
+                                   if item.id == change.target_id]
+                        if len(matches) != 1:
+                            raise InvalidChange("Requirement target_id not found or ambiguous")
+                        index = matches[0]
+                        if new_value is None:
+                            previous.pop(index)
+                            changed_paths.append(change.path)
+                        elif self._requirement_signature(previous[index]) != self._requirement_signature(new_value):
+                            new_value.id = change.target_id  # preserve stable identity
+                            previous[index] = new_value
+                            changed_paths.append(change.path)
                         continue
+                    if change.target_id is not None:
+                        raise InvalidChange("target_id is only supported for requirement edits")
                     is_empty = previous is None or (
                         isinstance(previous, OptimizationSlot) and previous.mode == "optimize"
                     )
@@ -141,6 +189,10 @@ class SQLiteDesignBriefStore:
             )
 
     @staticmethod
+    def _requirement_signature(value) -> tuple:
+        return (value.field, value.operator, value.value, value.unit)
+
+    @staticmethod
     def _same_value(previous: object, candidate: object) -> bool:
         if previous is None or candidate is None:
             return previous is candidate
@@ -160,11 +212,11 @@ class SQLiteDesignBriefStore:
             raise InvalidChange(f"Unknown or read-only parameter path: {change.path}")
         if change.value is None:
             if operation != "replace" or not any(
-                x in change.evidence_span for x in ("撤销", "取消", "不知道", "不确定", "清除")
+                x in change.evidence_span for x in (
+                    "撤销", "取消", "不知道", "不确定", "清除", "删除", "移除", "不再限制"
+                )
             ) or change.evidence_span not in context.user_message:
                 raise InvalidChange("Clearing a value needs an explicit user withdrawal")
-            if FIELDS[change.path].kind == "requirement":
-                raise InvalidChange("Requirement list clearing not implemented in PR-01")
             return None
         return normalize_change(change, context)
 
