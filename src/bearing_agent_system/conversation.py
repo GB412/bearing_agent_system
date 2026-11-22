@@ -137,7 +137,7 @@ class ConversationAgent:
                 answer = _answer_text(output["messages"][-1])
                 if not answer:
                     answer = "本轮未生成有效回复。当前已保存状态可通过 /status 查看。"
-                answer = self._finalize(answer, turn_tools)
+                answer = self._finalize(answer, turn_tools, user_message)
                 stats = _usage(emitted)
                 error_type = None
             except Exception as exc:
@@ -160,7 +160,7 @@ class ConversationAgent:
             )
 
     @staticmethod
-    def _finalize(answer: str, tools: TurnTools) -> str:
+    def _finalize(answer: str, tools: TurnTools, user_message: str) -> str:
         """Guard reportable claims against real tool receipts, never model self-report."""
         success = tools.successful_paths
         failures = tools.failed_writes
@@ -174,7 +174,13 @@ class ConversationAgent:
         claims_new_write = bool(re.search(r"(?:本轮|刚才|刚刚|已经|成功).{0,8}"
                                           r"(?:保存|记录|修改|更新|写入)", answer))
         called_write = any(t["name"] == "update_design_brief" for t in tools.trace)
-        if claims_new_write and not called_write:
+        asking_about_history = any(
+            word in user_message
+            for word in ("目前", "当前", "以前", "此前", "之前", "已经保存", "已记录",
+                         "进度", "进展", "已确定", "还缺", "有哪些")
+        )
+        # A status summary can correctly say "previously saved" without a NEW write.
+        if claims_new_write and not called_write and not asking_about_history:
             return (
                 "本轮没有调用参数写入工具，因此没有新增或修改已保存的设计参数。"
                 "可以继续提供信息；已有状态请通过 /status 查看。"
