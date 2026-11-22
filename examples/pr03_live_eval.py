@@ -116,7 +116,9 @@ def grade_knowledge_case(
         )
     answer = turns[-1].get("answer", "")
     for value in case.get("required_facts", []):
-        if value not in answer:
+        # Do not accept "62" merely because it appears inside product number 6206.
+        pattern = r"(?<![0-9])" + re.escape(value) + r"(?![0-9])"
+        if re.search(pattern, answer) is None:
             errors.append("Model answer omitted expected sourced fact " + value)
     if case.get("forbid_numeric_units") and UNSOURCED_QUANTITY.search(answer):
         errors.append("Model stated a numerical engineering measurement without evidence")
