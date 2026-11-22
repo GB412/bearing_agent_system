@@ -451,3 +451,22 @@ def test_summary_separates_approximate_value_from_confirmed(environment):
     assert result.error_type is None
     assert "近似/待确认" in result.answer
     assert "工作温度=40.0℃" in result.answer
+
+
+def test_current_preference_is_not_mistaken_for_status_question(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="已记录当前润滑方式为脂润滑。"),
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "grease", "润滑方式选脂润滑")
+        ]}, "current-grease"),
+        AIMessage(content="已记录脂润滑。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "目前润滑方式选脂润滑", turn_id="current"
+    )
+    assert model.calls == 3
+    assert result.error_type is None
+    assert result.tool_trace[0]["ok"]
+    assert "润滑方式=脂润滑" in result.answer
+    assert service.get_brief("s")[0].engineering.lubrication.mode.value == "grease"
