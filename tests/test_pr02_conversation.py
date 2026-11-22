@@ -152,7 +152,8 @@ def test_model_cannot_forge_optimization_range_as_user_fact(environment):
     agent = ConversationAgent(service, history, model)
     result = agent.respond("design-1", "我还不知道球数", turn_id="fake-range")
     assert not result.tool_trace[0]["ok"]
-    assert "未通过" in result.answer
+    assert "本轮仍未保存" in result.answer
+    assert "已把球数固定" not in result.answer
     assert service.get_brief("design-1")[0].optimization_slots.Z.mode == "optimize"
 
 
