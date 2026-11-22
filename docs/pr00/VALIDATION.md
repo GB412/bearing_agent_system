@@ -2,7 +2,7 @@
 
 日期：2026-11-20；Windows；`C:/Python314/python.exe`，Python3.14.0、pytest8.4.2。项目目标Python3.11+；本次未另运行3.11版本。
 
-业务基线02861ea09e77906f4360ed1e3e9c7268a0c9ea1f；Bearing_CAD对照4460a784846d7df978579f49e8685a18da336e81。证据JSON固定记录两者，不伪造新代码SHA；最终提交引用见PROJECT_CHANGELOG。
+业务基线02861ea09e77906f4360ed1e3e9c7268a0c9ea1f；Bearing_CAD对照4460a784846d7df978579f49e8685a18da336e81。原始审计 JSON 曾记录两者，现已从本项目删除；本表只保留历史运行记录，不代表本分支可以直接重跑原采集器。
 
 |实际命令 / 环境|结果|证明范围|
 |---|---|---|
@@ -12,13 +12,13 @@
 |Bearing_CAD目录同时收集 test_robas_ball_input.py / test_robas_analysis_api.py|收集失败：ModuleNotFoundError: cadquery|完整API联测BLOCKED；未安装/修改范围外依赖|
 |在目标仓库用绝对路径调用外部球轴承测试的中间尝试|收集失败：ModuleNotFoundError: bearing_cad|已改为Bearing_CAD目录重跑，上行23通过；未把失败当通过|
 |原版UI @oai/sky 只读|已观察工况/润滑/外圈材料/solver页面|不是同次UI生成DATA闭环，不证明构建等同源码|
-|真实EXE求解、DLAP性能、模型/工程验收|未运行|不得宣称收敛、性能达标或工程审核通过|
+|真实EXE求解、外部计算性能、模型/工程验收|未运行|不得宣称收敛、性能达标或工程审核通过|
 
 审计脚本对getter/setter与构造器做静态文本提取，不编译C#；source_references含词法候选。非优化字段BLOCKED并不代表无法找到代码，表示单位/工程适用性/确认尚有缺口。原版参考值一律不提升为用户确认。
 
 自审修正：初次collector未处理rec3.1同一行的string.Format，断言失败后修正并成功重跑；一次复制命令使用错误cwd，未写入文件，已改正目标绝对路径；git diff --check发现矩阵EOF空行，已去除并修正collector输出。以上均未触及原版文件。未隐藏失败或虚构测试。
 
-本仓库原先没有现成pytest/文档CI。本次新增的是审计工具和工件检查，不是Agent或输入构建功能。全套API测试仍BLOCKED。
+当时没有完整 Agent/输入构建测试。为保持新仓库专注，PR-00 的一次性审计脚本、JSON 和对应 pytest 文件已清理；下面通过数字是**历史运行结果**，不是当前分支可重跑的测试。全套 API 测试仍 BLOCKED。
 
 最终重跑：PR-00审计pytest **12 passed in 0.09s**；git diff --check通过（无输出）。原版资源/源码哈希检查通过。
 
