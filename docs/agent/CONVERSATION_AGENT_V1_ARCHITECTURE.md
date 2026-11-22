@@ -103,6 +103,8 @@ Conversation Agent（LLM）
 | `tool_call_id` / 规范化 `operation_key` | 当前轮内一次具体工具操作 | 操作级幂等：相同逻辑操作的重试只执行一次，**同一轮不同操作均允许执行** |
 | `brief_revision` | DesignBrief 已提交快照版本 | 每次有效原子变更递增；后续调用从实际最新版本读取/校验 |
 
+**revision 严格表示 DesignBrief 内容版本，不是所有数据库行更新的计数器。** `set/replace/accept_proposal` 确实改变参数时才递增 `brief_revision`；`accept_brief` 只追加一条指向**现有** `brief_revision/summary_id` 的接受记录，**不递增这个 Brief 内容版本**。保存推荐提案、生成审阅摘要、导出文件或写调用日志也不能误增 Brief 内容版本。若需要对这些记录并发控制，可使用各自的记录 ID/时间戳/独立版本。
+
 工具调用的操作键应由服务端结合 `session/turn`、操作类型、规范化 payload（含 proposal、接受范围）计算或登记。不能仅用整轮 `request_id` 去重每次写入，也不能只信模型自报的 `tool_call_id`。重放相同操作返回上次结果；对同一字段重复提交同样数值应为无变更；有冲突/不同值时要求重新检查，不悄悄覆盖。
 
 客户端 `expected_revision` 用于新用户轮次的并发校验；一轮内部第一次写入后，后续受信调用使用**服务端已经提交的最新 revision**，并再次检查是否有外部并发修改。若有竞争性修改，拒绝过期写入并刷新上下文，不能静默重试覆盖他人变更。
@@ -157,7 +159,7 @@ Conversation Agent（LLM）
 
 **来源保护**：真实 `session_id/turn_id/message_id`、用户原始消息、当前 revision、调用操作键由服务器注入或验证，不能相信 LLM 自填。模型不得设置 `confirmed=true`、伪造用户来源或替用户确认。原文片段存在不是充分授权；工具必须检查语义明确、数值/单位、适用范围和提案引用，不能仅靠字符串包含判断同意。
 
-**整份确认保护**：`summary_id` 应关联工具⑤生成的指定版 **DesignBrief 内容摘要/哈希** 和实际已向用户展示的摘要记录；必须核对当前修订与用户当前明确接受表达。只说“确认”但有多个不同摘要候选时先澄清。调用 `accept_brief` 后若后续 revision 变化，整体确认自动不适用于新 revision。
+**整份确认保护**：`accept_brief` 必须保持内容修订号不变，仅在独立的接受记录中追加 `accepted_revision` 与用户证据；同一有效接受重复提交须幂等，不可让确认写入本身触发“版本过期”。`summary_id` 应关联工具⑤生成的指定版 **DesignBrief 内容摘要/哈希** 和实际已向用户展示的摘要记录；必须核对当前修订与用户当前明确接受表达。只说“确认”但有多个不同摘要候选时先澄清。调用 `accept_brief` 后若后续 revision 变化，整体确认自动不适用于新 revision。
 
 **操作结果**：`applied_changes`、`rejected_changes`、`revision`、`invalidated_proposals`、`design_status`；`accept_brief` 另返回 `brief_user_accepted_revision`。无实际变更不必增 revision；同一轮可以先修改转速再接受不受其影响的提案，但需要两个独立、幂等的操作键；具体提案有效性按依赖快照检查，而非简单看全局 revision。
 
