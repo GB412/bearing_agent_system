@@ -6,7 +6,14 @@ import sqlite3
 from pathlib import Path
 
 from .checks import get_design_status
-from .models import DesignBrief, OptimizationSlot, ParameterValue, TrustedContext, UpdateBatch, UpdateResult
+from .models import (
+    DesignBrief,
+    OptimizationSlot,
+    ParameterValue,
+    TrustedContext,
+    UpdateBatch,
+    UpdateResult,
+)
 from .parameter_catalog import (
     FIELDS,
     InvalidChange,
