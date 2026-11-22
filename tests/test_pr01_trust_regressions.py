@@ -7,7 +7,6 @@ import sqlite3
 import pytest
 
 from bearing_agent_system import (
-    DesignBriefService,
     SQLiteDesignBriefStore,
     TrustedContext,
     UpdateBatch,
