@@ -30,6 +30,23 @@ def get_design_status(brief: DesignBrief) -> DesignStatus:
             if not value.confirmed or value.precision != "exact":
                 pending.append(path)
 
+    # Expose active constraints with server-owned IDs so future Agent turns can
+    # replace/withdraw the correct item without treating history as business state.
+    for group in ("constraints", "preferences", "geometric_bounds"):
+        values = getattr(brief.requirements, group)
+        if values:
+            known[f"requirements.{group}[]"] = [
+                {"id": item.id, "field": item.field, "operator": item.operator,
+                 "value": item.value, "unit": item.unit}
+                for item in values
+            ]
+    for name in ("Dw_mm", "Z", "Dpw_mm", "fi", "fo"):
+        slot = getattr(brief.optimization_slots, name)
+        if slot.mode != "optimize":
+            known[f"optimization_slots.{name}"] = {
+                "mode": slot.mode, "value": slot.value, "bounds": slot.bounds
+            }
+
     # Choice between group OR numerical clearance, not both required.
     if brief.engineering.clearance.group is None and brief.engineering.clearance.initial_radial_clearance_mm is None:
         missing.append("engineering.clearance")
