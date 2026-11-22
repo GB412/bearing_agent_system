@@ -25,7 +25,9 @@ git switch -c feature/pr02-deepseek-react --track origin/feature/pr02-deepseek-r
 python -m pip install -e ".[dev]"
 
 # 安全设置：只在当前 PowerShell 会话输入，不写入代码/日志
-$env:DEEPSEEK_API_KEY = Read-Host "请输入 DeepSeek API Key"
+$secure = Read-Host "DeepSeek API Key" -AsSecureString
+$env:DEEPSEEK_API_KEY = [System.Net.NetworkCredential]::new("", $secure).Password
+Remove-Variable secure
 $env:DEEPSEEK_MODEL = "deepseek-flash"
 $env:DEEPSEEK_THINKING = "disabled"
 
