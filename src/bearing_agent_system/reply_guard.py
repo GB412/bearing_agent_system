@@ -118,14 +118,17 @@ def _followup_questions(answer: str) -> str:
     """Retain only innocuous questions, not model-authored saved-field claims."""
     questions: list[str] = []
     for line in answer.splitlines():
-        item = line.strip()
-        if not item or not ("？" in item or "?" in item):
-            continue
-        if WRITE_CLAIM.search(item) or "已确认" in item or "已保存" in item:
-            continue
-        questions.append(item)
-        if len(questions) == 2:
-            break
+        # A saved-value sentence and the next question may share one line.
+        for clause in re.split(r"(?<=[。；;])", line):
+            item = clause.strip()
+            if not item or WRITE_CLAIM.search(item) or "已确认" in item:
+                continue
+            if not (("？" in item or "?" in item)
+                    or item.startswith(("下一步", "接下来"))):
+                continue
+            questions.append(item)
+            if len(questions) == 2:
+                return "\n".join(questions)
     return "\n".join(questions)
 
 
