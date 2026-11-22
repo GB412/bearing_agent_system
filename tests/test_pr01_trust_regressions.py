@@ -341,3 +341,38 @@ def test_plain_three_dimension_batch_remains_supported(service):
     ])
     assert not result.rejected_changes
     assert result.revision == 1
+
+
+def test_locked_ball_diameter_range_centimeter_converts_both_ends(service):
+    result = send(service, "Dw在0.7～0.9cm之间", [
+        item("optimization_slots.Dw_mm", {"mode": "bounded", "bounds": [0.7, 0.9]},
+             "Dw在0.7～0.9cm之间", "cm", "range")
+    ])
+    assert not result.rejected_changes
+    assert service.get_brief("s")[0].optimization_slots.Dw_mm.bounds == (7.0, 9.0)
+
+
+def test_approximate_dimension_cannot_be_confirmed_with_clipped_quote(service):
+    result = send(service, "外径大约52mm", [
+        item("dimensions.D_mm", 52, "52mm", "mm", "exact")
+    ])
+    assert result.rejected_changes
+    assert service.get_brief("s")[0].dimensions.D_mm is None
+
+
+def test_approximate_bound_cannot_become_hard_limit(service):
+    result = send(service, "外径大约不超过52mm", [
+        item("requirements.geometric_bounds[]", geom(52), "不超过52mm")
+    ])
+    assert result.rejected_changes
+    assert service.get_brief("s")[0].requirements.geometric_bounds == []
+
+
+def test_power_loss_kilowatts_converts_to_watts(service):
+    result = send(service, "功率损耗不超过0.02kW", [
+        item("requirements.constraints[]",
+             {"field": "power_loss", "operator": "<=", "value": 0.02, "unit": "kW"},
+             "功率损耗不超过0.02kW")
+    ])
+    assert not result.rejected_changes
+    assert service.get_brief("s")[0].requirements.constraints[0].value == 20.0
