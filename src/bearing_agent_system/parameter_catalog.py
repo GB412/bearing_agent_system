@@ -78,7 +78,7 @@ UNIT_FACTORS: dict[str, dict[str, float]] = {
 
 NUMERIC_LITERAL = re.compile(r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?")
 NUMERIC_WITH_UNIT = re.compile(
-    r"(?<![A-Za-z0-9])([-+]?\\d+(?:\\.\\d+)?)\\s*"
+    r"(?<![A-Za-z0-9])([-+]?\d+(?:\.\d+)?)\s*"
     r"(hours|hour|小时|毫米|厘米|微米|degC|rpm|rps|kN|kW|mm|cm|µm|um|°C|℃|N|W|h|m|K)"
     r"(?![A-Za-z])"
 )
@@ -158,11 +158,18 @@ def _check_unit_against_evidence(change: UpdateChange, spec: FieldSpec) -> None:
 
 
 def _checked_quantity(raw: Any, unit: str | None, spec: FieldSpec,
-                      evidence: str) -> float:
+                      evidence: str, path: str | None = None) -> float:
     """Use one evidence, unit, and numeric gate for scalar, bounds, and slots."""
     value = _finite_number(raw)
     if not _has_number(evidence, value):
-        raise InvalidChange("Quantity has no matching number in cited user evidence")
+        explicit_zero = value == 0 and (
+            (path == "operating.axial_load_n"
+             and any(t in evidence for t in ("无轴向载荷", "没有轴向载荷")))
+            or (path == "operating.outer_speed_rpm"
+                and any(t in evidence for t in ("外圈固定", "外圈不动")))
+        )
+        if not explicit_zero:
+            raise InvalidChange("Quantity has no matching number in cited user evidence")
     proxy = UpdateChange(path="quantity", value=value, unit=unit, evidence_span=evidence)
     _check_unit_against_evidence(proxy, spec)
     return _normalize_number(value, unit, spec)
@@ -180,9 +187,9 @@ def _nearby_operator(text: str, value: float) -> str | None:
     for match in NUMERIC_LITERAL.finditer(text):
         if not math.isclose(float(match.group()), value, rel_tol=1e-9, abs_tol=1e-9):
             continue
-        prefix = re.split(r"[，,。；;\\n]", text[max(0, match.start() - 24):match.start()])[-1]
+        prefix = re.split(r"[，,。；;\n]", text[max(0, match.start() - 24):match.start()])[-1]
         for expression, operator in patterns:
-            if re.search(expression + r"\\s*(?:为|是)?\\s*$", prefix):
+            if re.search(expression + r"\s*(?:改为|改成|调整为|更新为|为|是)?\s*$", prefix):
                 return operator
     return None
 
@@ -191,7 +198,7 @@ def _approximate_near(text: str, value: float) -> bool:
     for match in NUMERIC_LITERAL.finditer(text):
         if not math.isclose(float(match.group()), value, rel_tol=1e-9, abs_tol=1e-9):
             continue
-        left = re.split(r"[，,。；;\\n]", text[max(0, match.start() - 16):match.start()])[-1]
+        left = re.split(r"[，,。；;\n]", text[max(0, match.start() - 16):match.start()])[-1]
         right = text[match.end():match.end() + 5]
         if any(word in left for word in APPROXIMATE_MARKERS + ("可能", "暂定")):
             return True
@@ -364,7 +371,8 @@ def normalize_change(change: UpdateChange, context: TrustedContext) -> Parameter
     if spec.kind == "slot":
         return _make_slot(change, source, context)
     if spec.kind == "number":
-        value = _checked_quantity(change.value, change.unit, spec, change.evidence_span)
+        value = _checked_quantity(change.value, change.unit, spec, change.evidence_span,
+                                  path=change.path)
         if change.path.startswith("dimensions."):
             operator = _nearby_operator(context.user_message, float(change.value))
             if operator in ("<", "<=", ">", ">="):
