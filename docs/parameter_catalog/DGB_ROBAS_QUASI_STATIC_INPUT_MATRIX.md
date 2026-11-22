@@ -4,7 +4,7 @@
 
 证据源根目录 `D:/RotorStudio/RoBAS/`；Python 根目录 `D:/RotorStudio/Bearing_CAD/Bearing_CAD/bearing_cad/`。
 
-所有字段的 getter/setter 完整片段、属性上下文、默认表达式/行号、赋值/依赖、Python 行号和实际案例值均保存在 [audit.json](../pr00/evidence/audit.json)。本表默认值仅证明初始化，不证明工程适用性。
+本表保留关键 C# 位置、默认表达式、依赖、Python 映射和历史案例值等审计摘要；原始大 JSON 已从新 Agent 仓库移除，需深入核查时应使用授权的本机原版 RoBAS 和 Bearing_CAD 源码。默认值仅证明初始化，不证明工程适用性。
 
 类别统计：`{"SOLVER_PROFILE": 78, "DERIVED": 25, "OPTIMIZATION_VARIABLE": 5, "USER_INPUT": 41, "REFERENCE_PROFILE_UNVERIFIED": 141, "ROBAS_DATABASE": 34}`。ROBAS_DATABASE 在本次特指原版 CSV，非 SQLite。分类表示预期主来源，BLOCKED 表示单位、适用性、确认链至少一项未关闭。OPT_PENDING 同样阻断可运行 DATA。
 
