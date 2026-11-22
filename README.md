@@ -1,6 +1,6 @@
 # Bearing Agent System
 
-面向滚动轴承工程设计的需求引导系统。当前已经实现规划文档、RoBAS 工程输入审计，以及**深沟球轴承（DGB）的结构化 DesignBrief 状态底座（PR-01 待验收）**；PR-02 的真实 DeepSeek ReAct 对话 Agent 已在独立 Draft PR #4 中实现，等待真实 API 验收。
+面向滚动轴承工程设计的需求引导系统。当前已经实现规划文档、RoBAS 工程输入审计，以及**深沟球轴承（DGB）的结构化 DesignBrief 状态底座（PR-01 待验收）**；PR-01 和 PR-02 已先后合并到 main；PR-03 正在独立分支实现工程知识查询。
 
 ## 当前设计
 
@@ -26,7 +26,7 @@
 
 ## 当前进度与工程边界
 
-GitHub PR #1（RoBAS 输入审计）和 PR #2（五工具 ReAct 架构）均已合并；工程适配状态仍为 **BLOCKED**。PR-01 的参数目录、DesignBrief、原子写入、内容 revision 与简洁状态检查已实现，当前 GitHub PR #3 为 Draft、等待验收。PR-02 的开发分支 feature/pr02-deepseek-react 已从 PR-01 分支创建（GitHub PR #4，尚未合并）。PR-02 提供单会话串行 ReAct、多轮对话与只读草案预览；`operation_key` 仅在实际重复工具写入风险出现时再实现；PR-05 才正式完成版本绑定的整份接受与导出。
+GitHub PR #1（RoBAS 输入审计）和 PR #2（五工具 ReAct 架构）均已合并；工程适配状态仍为 **BLOCKED**。PR-01 的参数目录、DesignBrief、原子写入、内容 revision 与简洁状态检查已实现，PR-01（GitHub #3）已合并。PR-02（GitHub #4）也已合并到 main；PR-03 正在单独分支开发。PR-02 提供单会话串行 ReAct、多轮对话与只读草案预览；`operation_key` 仅在实际重复工具写入风险出现时再实现；PR-05 才正式完成版本绑定的整份接受与导出。
 
 DGB V1 固定外形尺寸 d/D/B，获取实际轴承载荷、套圈转速及假定工作温度，推荐/确认材料、润滑、游隙与配合，记录设计要求；Dw、Z、Dpw、fi、fo 留给未来优化模块。
 
@@ -51,7 +51,7 @@ ruff check .
 
 ## PR-02：真实 DeepSeek Conversation Agent（Draft，待实测）
 
-PR-02 相对 PR-01 是**叠加 PR**：PR-01 未合并前，PR-02 的目标分支为 PR-01。详见 [PR-02 实施与 DeepSeek 测试说明](docs/pr02/IMPLEMENTATION_REPORT.md)。
+PR-02 已通过验收并合并到 main。详见 [PR-02 实施与 DeepSeek 测试说明](docs/pr02/IMPLEMENTATION_REPORT.md)。
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -65,3 +65,7 @@ python -m bearing_agent_system.chat_cli --model deepseek-flash
 ```
 
 终端指令 `/status`、`/brief`、`/trace`、`/new`、`/exit`；可选真实测试 `python examples/pr02_live_eval.py --max-cases 5`。**离线 CI 通过不代表真实 DeepSeek 已通过**；无凭据时必须报告真实 API 验证仍待完成。此阶段只实现两个工具、单 Agent，不提供工程推荐或 RoBAS 计算。
+
+## PR-03：有来源的工程知识查询（开发中）
+
+第三个 Agent 工具 `lookup_engineering_knowledge` 只读本地少量制造商资料，返回出处、适用条件和审核状态；未找到资料不编造数值。当前仅覆盖6206主要外形尺寸与CN/C3概念，不提供专业推荐或RoBAS计算。详见 [PR-03 实施说明](docs/pr03/IMPLEMENTATION.md)。
