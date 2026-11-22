@@ -157,10 +157,14 @@ def test_model_cannot_forge_optimization_range_as_user_fact(environment):
 
 def test_no_tool_call_may_not_claim_fresh_write(environment):
     service, history = environment
-    model = ScriptedChatModel(replies=[AIMessage(content="已经保存轴承尺寸。")])
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="已经保存轴承尺寸。"),
+        AIMessage(content="抱歉，尚未写入，请确认尺寸所属字段。"),
+    ])
     agent = ConversationAgent(service, history, model)
     result = agent.respond("design-1", "我的轴承尺寸是25×52×15mm", turn_id="no-write")
-    assert "本轮没有调用参数写入工具" in result.answer
+    assert "尚未写入" in result.answer
+    assert model.calls == 2  # exactly one correction, no infinite loop
     assert service.get_brief("design-1")[0].dimensions.d_mm is None
 
 
@@ -297,3 +301,152 @@ def test_read_only_progress_question_can_report_past_saved_values(environment):
     result = agent.respond("s", "目前已经保存哪些参数？", turn_id="progress")
     assert "此前已经保存" in result.answer
     assert result.tool_trace == []
+
+
+def test_repair_runs_same_agent_then_saves_grease(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="已记录：润滑方式是脂润滑。"),
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "grease", "润滑方式：脂润滑")
+        ]}, "repair-grease"),
+        AIMessage(content="已记录润滑方式为脂润滑。下一步想确定润滑剂牌号吗？"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "润滑方式：脂润滑", turn_id="grease"
+    )
+    assert result.error_type is None
+    assert model.calls == 3
+    assert result.revision == 1
+    assert len(result.tool_trace) == 1 and result.tool_trace[0]["ok"]
+    saved = service.get_brief("s")[0].engineering.lubrication.mode
+    assert saved.value == "grease"
+    assert "本轮实际已写入" in result.answer
+    assert "脂润滑" in result.answer
+    assert len(history.history("s")) == 2  # no internal correction persisted
+
+
+def test_repair_only_once_when_model_keeps_claiming_success(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="已保存润滑方式。"),
+        AIMessage(content="已经记录脂润滑。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "润滑方式：脂润滑", turn_id="twice"
+    )
+    assert result.error_type is None
+    assert model.calls == 2
+    assert result.tool_trace == []
+    assert "没有成功写入" in result.answer
+    assert service.get_brief("s")[1] == 0
+
+
+def test_repair_failed_write_never_confirms_parameter(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="已记录脂润滑。"),
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "grease", "油润滑")
+        ]}, "bad-evidence"),
+        AIMessage(content="成功记录润滑方式为脂润滑。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "润滑方式：脂润滑", turn_id="fail"
+    )
+    assert model.calls == 3
+    assert result.tool_trace[0]["ok"] is False
+    assert "未通过校验" in result.answer
+    assert service.get_brief("s")[0].engineering.lubrication.mode is None
+
+
+def test_first_tool_failure_does_not_trigger_unbounded_repair(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("dimensions.D_mm", 52, "外径不超过52mm", "mm")
+        ]}, "wrong-bound"),
+        AIMessage(content="已记录外径52mm。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "外径不超过52mm", turn_id="reject"
+    )
+    assert model.calls == 2
+    assert len(result.tool_trace) == 1
+    assert "未通过校验" in result.answer
+
+
+def test_partial_write_receipt_overrides_unsaved_claims(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "grease", "脂润滑")
+        ]}, "only-grease"),
+        AIMessage(content="已记录：脂润滑，并已保存内外圈和钢球GCr15。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "脂润滑，材料GCr15", turn_id="partial"
+    )
+    assert model.calls == 2
+    assert result.revision == 1
+    assert "润滑方式=脂润滑" in result.answer
+    assert "GCr15" not in result.answer
+    assert service.get_brief("s")[0].engineering.materials.ball_id is None
+
+
+def test_summary_cannot_promote_unwritten_chat_history_to_confirmed(environment):
+    service, history = environment
+    history.begin_turn("s", "old", "内外圈和钢球GCr15")
+    history.finish_turn("s", "old", "已记录内外圈、钢球GCr15", [])
+    history.begin_turn("s", "old2", "润滑方式脂润滑")
+    history.finish_turn("s", "old2", "已记录脂润滑", [])
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="**已确认**：内外圈和钢球GCr15，脂润滑。")
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "目前已经确定了什么？", turn_id="summary"
+    )
+    assert result.error_type is None
+    assert model.calls == 1
+    assert "GCr15" not in result.answer
+    assert "脂润滑" not in result.answer
+    assert "内圈材料" in result.answer
+    assert "未提供" in result.answer
+
+
+def test_repair_does_not_start_for_explanation_question(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="径向游隙是套圈间允许的径向相对位移。")
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "什么是径向游隙？", turn_id="explain"
+    )
+    assert model.calls == 1
+    assert result.tool_trace == []
+
+
+def test_summary_separates_approximate_value_from_confirmed(environment):
+    service, history = environment
+    from bearing_agent_system.models import TrustedContext, UpdateBatch
+
+    change = UpdateBatch.model_validate({
+        "operation": "set",
+        "changes": [{
+            "path": "operating.temperature_c", "value": 40,
+            "unit": "℃", "precision": "approximate",
+            "evidence_span": "约40℃"
+        }],
+    })
+    service.update_design_brief("s", change, TrustedContext(
+        message_id="temp", user_message="约40℃"
+    ))
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="已确认工作温度40℃。")
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "目前确定了什么？", turn_id="temp-summary"
+    )
+    assert result.error_type is None
+    assert "近似/待确认" in result.answer
+    assert "工作温度=40.0℃" in result.answer
