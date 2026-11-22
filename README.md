@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**PR-00：RoBAS 8.11 DGB 拟静力学输入审计与规划。**
+**PR-00：RoBAS DGB 拟静力学输入审计；Conversation Agent V1 架构待评审。**
 
 当前仓库以规划和审计文档为主，尚未实现 Agent、优化器或求解器集成代码。第一版限定 DGB、RoBAS 拟静力学 Mode=-1；优化模块暂不加入 Agent。
 
@@ -30,4 +30,4 @@
 
 已列出43条记录/324字段的原版源码、默认值、getter/setter、CSV/SQLite资源和实际DGB案例证据。工程输入冻结仍BLOCKED，问题B01–B10见[审计报告](docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md)。本仓库没有Agent或优化实现，未启动PR-01，不自动合并。
 
-[事实说明书](docs/PROJECT_MANUAL.md) · [变更记录](docs/PROJECT_CHANGELOG.md) · [验证结果](docs/pr00/VALIDATION.md)
+[审计结论](docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) · [历史验证记录](docs/pr00/VALIDATION.md)
