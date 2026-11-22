@@ -14,6 +14,8 @@ from bearing_agent_system.agent_tools import TurnTools
 from bearing_agent_system.conversation import ConversationAgent
 from bearing_agent_system.conversation_store import ConversationStore
 from bearing_agent_system.llm_client import make_deepseek_model
+from bearing_agent_system.models import DesignBrief, ParameterValue, Source
+from examples.pr02_live_eval import grade
 
 
 class ScriptedChatModel(BaseChatModel):
@@ -260,3 +262,20 @@ def test_deepseek_non_thinking_configuration():
     model = make_deepseek_model(api_key="unit-test-only", model_name="deepseek-flash")
     assert model.model_name == "deepseek-flash"
     assert model.extra_body == {"thinking": {"type": "disabled"}}
+
+
+def test_live_grader_checks_exact_values_and_approximate_status():
+    brief = DesignBrief()
+    brief.dimensions.d_mm = ParameterValue(
+        value=25, unit="mm", confirmed=True, source=Source(kind="user", message_id="m")
+    )
+    brief.operating.temperature_c = ParameterValue(
+        value=60, unit="degC", precision="approximate", confirmed=False,
+        source=Source(kind="user", message_id="m"),
+    )
+    assert grade(brief, {"id": "ok", "expected": {"dimensions.d_mm": 25},
+                         "pending": ["operating.temperature_c"]}) == []
+    assert grade(brief, {"id": "wrong", "expected": {"dimensions.d_mm": 30}})
+    brief.operating.temperature_c.confirmed = True
+    assert grade(brief, {"id": "bad-confirmation",
+                         "pending": ["operating.temperature_c"]})
