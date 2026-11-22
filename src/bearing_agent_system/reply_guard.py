@@ -194,10 +194,8 @@ def verified_reply(
         lines.append("本轮仍未保存：" + "；".join(items) + "。可用 /trace 查看详情。")
     if result.unknown_failures:
         lines.append("还有无法确定字段的更新失败，请用 /trace 查看详情。")
-    # Unresolved writes are reported from receipts only. A rejected model
-    # attempt must never turn into a claimed design change in free text.
-    if result.unresolved or result.unknown_failures:
-        return "\n".join(lines)
+    # Report failed writes from trusted receipts, but retain independent
+    # analysis or guidance after stripping model-authored write claims.
     if UNSUPPORTED_CLAIMS.search(answer):
         answer = "当前仅建立需求草案，尚未进行工程校核、RoBAS 验证或 CAD 生成。"
     natural = _free_text_without_new_write_claims(answer)
