@@ -11,6 +11,7 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 
 from bearing_agent_system import DesignBriefService, SQLiteDesignBriefStore
 from bearing_agent_system.agent_tools import TurnTools
+from bearing_agent_system.parameter_catalog import FIELDS
 from bearing_agent_system.conversation import ConversationAgent
 from bearing_agent_system.conversation_store import ConversationStore
 from bearing_agent_system.llm_client import make_deepseek_model
@@ -537,9 +538,9 @@ def test_partial_batch_failed_then_partial_correction_reports_remaining(environm
     assert result.revision == 1
     assert "本轮实际已写入：润滑方式=油润滑" in result.answer
     assert "本轮仍未保存：钢球材料" in result.answer
-    # An unresolved write suppresses model prose, which might contain a
-    # false success claim. The trusted per-field receipt remains visible.
-    assert "关于钢球材料仍需要澄清" not in result.answer
+    # A failed write still reports trusted receipts, while preserving
+    # independent guidance that does not claim the field was saved.
+    assert "关于钢球材料仍需要澄清" in result.answer
     assert service.get_brief("s")[0].engineering.materials.ball_id is None
     assert reconcile_writes(result.tool_trace).unresolved[0][0] == (
         "engineering.materials.ball_id"
@@ -653,3 +654,41 @@ def test_unverified_confirmed_list_only_replaces_that_line(environment):
     assert "当前 DesignBrief 草案" in result.answer
     assert "所有钢球GCr15" not in result.answer
     assert "用户如果尚未决定材料" in result.answer
+
+
+def test_write_tool_description_lists_exact_paths_and_examples(environment):
+    service, _ = environment
+    write_tool = TurnTools(
+        service=service, session_id="s", message_id="m",
+        user_message="游隙选CN",
+    ).tools()[0]
+    description = write_tool.description
+    assert all(path in description for path in FIELDS)
+    assert '"path":"requirements.geometric_bounds[]"' in description
+    assert '"field":"life_hours","operator":">="' in description
+    assert '"path":"engineering.clearance.group","value":"CN"' in description
+
+
+def test_failed_write_keeps_independent_engineering_answer(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("requirements", 62, "外径不能超过62mm")
+        ]}, "invalid-requirements"),
+        AIMessage(content=(
+            "已经记录外径上限62mm。\\n"
+            "脂润滑结构简单，维护相对方便；油润滑更便于带走热量。"
+        )),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "外径不能超过62mm，顺便分析脂润滑和油润滑。",
+        turn_id="failed-but-explained",
+    )
+    assert result.error_type is None
+    assert result.revision == 0
+    assert "本轮仍未保存" in result.answer
+    assert "requirements" in result.answer
+    assert "已经记录外径上限" not in result.answer
+    assert "脂润滑结构简单" in result.answer
+    assert "油润滑更便于带走热量" in result.answer
+    assert service.get_brief("s")[0].requirements.geometric_bounds == []
