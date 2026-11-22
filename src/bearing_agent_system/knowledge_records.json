@@ -1,0 +1,79 @@
+{
+  "schema_version": "EngineeringKnowledge/v1",
+  "records": [
+    {
+      "id": "skf-6206-dimensions",
+      "topic": "bearing_model",
+      "match_terms": [
+        "6206"
+      ],
+      "summary": "SKF 6206 开式单列深沟球轴承的主要外形尺寸为内径 30 mm、外径 62 mm、宽度 16 mm。",
+      "facts": [
+        {
+          "field": "dimensions.d_mm",
+          "value": 30,
+          "unit": "mm"
+        },
+        {
+          "field": "dimensions.D_mm",
+          "value": 62,
+          "unit": "mm"
+        },
+        {
+          "field": "dimensions.B_mm",
+          "value": 16,
+          "unit": "mm"
+        }
+      ],
+      "applicability": "仅适用于所引 SKF 6206 产品主尺寸，其他变体需另查产品页。",
+      "limitations": [
+        "不是内部几何或材料清单",
+        "不能用外形尺寸判断额定寿命、实际游隙或适用转速"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "SKF",
+        "title": "6206 - Deep groove ball bearings",
+        "url": "https://www.skf.com/si/products/rolling-bearings/ball-bearings/deep-groove-ball-bearings/productid-6206",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_product_page"
+      }
+    },
+    {
+      "id": "ntn-clearance-classes",
+      "topic": "clearance",
+      "match_terms": [
+        "cn",
+        "c3",
+        "游隙",
+        "clearance"
+      ],
+      "summary": "CN（Normal）表示普通径向内部游隙等级；C3 表示比普通等级更大的径向内部游隙等级。等级名称本身不决定某个轴承的具体游隙数值。",
+      "facts": [
+        {
+          "field": "clearance.normal_group",
+          "value": "CN",
+          "unit": null
+        },
+        {
+          "field": "clearance.greater_than_normal_group",
+          "value": "C3",
+          "unit": null
+        }
+      ],
+      "applicability": "仅解释深沟球轴承径向游隙等级的一般含义，不对具体产品自动推荐CN或C3。",
+      "limitations": [
+        "未提供6206在CN/C3等级下的数值游隙区间",
+        "未计算装配后工作游隙；需结合配合、温差和产品资料"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NTN Americas",
+        "title": "Frequently Asked Questions - What is C3 clearance?",
+        "url": "https://ntnamericas.com/technical-resources/faqs/",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_technical_faq"
+      }
+    }
+  ]
+}
