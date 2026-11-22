@@ -35,3 +35,16 @@ DGB V1 固定外形尺寸 d/D/B，获取实际轴承载荷、套圈转速及假�
 开发采用单 PR 验收方式；每个 PR 说明范围、实际测试、已知缺口、过度设计风险及下一阶段条件，未经授权不合并或启动后续开发。
 
 第一版不建设 RoBAS 43/324 字段的动态工程规则引擎；这些映射与专业校验留给后续适配层。当前不实现分布式事务、复杂异常恢复或跨客户端并发控制。
+
+## PR-01：参数模型与受信状态管理（待验收）
+
+PR-01 的代码位于 `feature/pr01-designbrief-state`。这是可执行的结构化输入底座，不是 DeepSeek / ReAct 对话程序。
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest -q tests
+python examples/pr01_demo.py
+ruff check .
+```
+
+示例展示从结构化参数批量更新到 SQLite 重新读取、缺项检查；测试不调用任何外部 API 或 RoBAS。相关范围与已知限制见 [PR-01 实施说明](docs/pr01/IMPLEMENTATION_REPORT.md)。没有安装 Ruff 的本地环境应如实标记未运行，不将 pytest 通过等同于 Ruff 通过。
