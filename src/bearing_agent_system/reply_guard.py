@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-
 # Only affirmative first-person/new write statements; never infer success from text.
 WRITE_CLAIM = re.compile(
     r"(?:已|已经|成功|现已|刚刚|刚才|本轮已|为你|帮你|替你).{0,10}"
