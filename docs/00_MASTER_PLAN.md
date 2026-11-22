@@ -196,7 +196,7 @@ LLM 决定“下一步做什么、怎样问、怎样解释”；确定性代码�
 - RoBAS Quasi-static Adapter：将 DesignBrief 映射为 43 条输入记录模板，检查协议。
 - Persistence：保存会话和 DesignBrief 快照。
 
-依据项目指令，后续使用 Python3.11+、Pydantic、LangGraph，StateManager 为状态唯一受信写入口。PR-00只审计协议，不实现编排或改动架构，不引入Supervisor。
+建议采用 Python 3.11+、Pydantic 与轻量回合编排（如最小 LangGraph）；由唯一受信写入模块负责参数确认和版本校验。技术框架不作为旧项目遗留约束，按当前实际需求及验收再冻结。
 
 ## 10. 开发阶段路线图
 
@@ -261,7 +261,7 @@ PR 之间允许根据审查结果调整拆分，但每个 PR 必须有明确范�
 - 现有 Windows golden case 是否有足够证据覆盖第一版目标工况。
 - 对话 Agent 的技术编排方式最终选择。
 
-PR-00 未关闭上述阻断项前，不开始 PR-01 的业务代码实现。
+PR-00 未解决的工程计算阻断不得被宣称已关闭；用户层参数模型与对话交互可先独立开发，但必须由用户批准每个 PR，完整 RoBAS 模板就绪仍需通过工程审核。
 
 ## 14. 2026-11-20 审计进度、问题和后续准入
 
@@ -269,7 +269,7 @@ PR-00 未关闭上述阻断项前，不开始 PR-01 的业务代码实现。
 
 优先由人工核验构建身份、曲率/垫片/UI自动属性断链、缺失单位/模型条件、材料/润滑适用性、保持架与安装几何、同次UI目标工况案例。仅文档与只读审计工具已实现，不开发Agent/优化。PR-01仍未开始，不因本次提交而自动准入。
 
-完成度词汇：NOT_IMPLEMENTED（无实现）、IMPLEMENTED（有实现）、UNIT_TESTED（相应单元检查通过）、INTEGRATION_TESTED（模块联测有证据）、REAL_ENV_VERIFIED（指定真实环境范围验证）、ENGINEERING_REVIEWED（专业人员已审核）；等级必须附范围和证据。本次工具测试不等于真实模型、求解器、DLAP或工程验收。
+完成度词汇：NOT_IMPLEMENTED（无实现）、IMPLEMENTED（有实现）、UNIT_TESTED（相应单元检查通过）、INTEGRATION_TESTED（模块联测有证据）、REAL_ENV_VERIFIED（指定真实环境范围验证）、ENGINEERING_REVIEWED（专业人员已审核）；等级必须附范围和证据。本次工具测试不等于真实模型、求解器、外部专业计算或工程验收。
 
 ## 15. 2026-11-22：Conversation Agent V1 架构设计（讨论稿，尚未开发）
 
