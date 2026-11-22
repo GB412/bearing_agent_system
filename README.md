@@ -1,6 +1,6 @@
 # Bearing Agent System
 
-面向滚动轴承工程设计的需求引导系统。当前仅实现规划、审计和**单列深沟球轴承（DGB）Conversation Agent V1** 的方案设计，Agent 业务代码尚未开发。
+面向滚动轴承工程设计的需求引导系统。当前已经实现规划文档、RoBAS 工程输入审计，以及**深沟球轴承（DGB）的结构化 DesignBrief 状态底座（PR-01 待验收）**；真正的 DeepSeek ReAct 对话 Agent 将在 PR-02 开发。
 
 ## 当前设计
 
@@ -26,7 +26,7 @@
 
 ## 当前进度与工程边界
 
-GitHub PR #1 记录 DGB RoBAS 拟静力学字段审计（工程协议仍 **BLOCKED**）；PR #2 是当前五工具 ReAct 架构文档，均尚未合并。下一步 PR-01 为参数目录、DesignBrief、串行原子批量写入、最小内容 revision 和简洁状态检查，**尚未开始**。PR-02 提供单会话串行 ReAct、多轮对话与只读草案预览；`operation_key` 仅在实际重复工具写入风险出现时再实现；PR-05 才正式完成版本绑定的整份接受与导出。
+GitHub PR #1（RoBAS 输入审计）和 PR #2（五工具 ReAct 架构）均已合并；工程适配状态仍为 **BLOCKED**。PR-01 的参数目录、DesignBrief、原子写入、内容 revision 与简洁状态检查已实现，当前 GitHub PR #3 为 Draft、等待验收。PR-02 将在 PR-01 获准后接入真实 DeepSeek ReAct。PR-02 提供单会话串行 ReAct、多轮对话与只读草案预览；`operation_key` 仅在实际重复工具写入风险出现时再实现；PR-05 才正式完成版本绑定的整份接受与导出。
 
 DGB V1 固定外形尺寸 d/D/B，获取实际轴承载荷、套圈转速及假定工作温度，推荐/确认材料、润滑、游隙与配合，记录设计要求；Dw、Z、Dpw、fi、fo 留给未来优化模块。
 
@@ -47,4 +47,4 @@ python examples/pr01_demo.py
 ruff check .
 ```
 
-示例展示从结构化参数批量更新到 SQLite 重新读取、缺项检查；测试不调用任何外部 API 或 RoBAS。相关范围与已知限制见 [PR-01 实施说明](docs/pr01/IMPLEMENTATION_REPORT.md)。没有安装 Ruff 的本地环境应如实标记未运行，不将 pytest 通过等同于 Ruff 通过。
+示例展示从结构化参数批量更新到 SQLite 重新读取、缺项检查；测试不调用任何外部 API 或 RoBAS。相关范围、优化范围单位与用户证据校验、约束替换/撤销及已知限制见 [PR-01 实施说明](docs/pr01/IMPLEMENTATION_REPORT.md)。没有安装 Ruff 的本地环境应如实标记未运行，不将 pytest 通过等同于 Ruff 通过。
