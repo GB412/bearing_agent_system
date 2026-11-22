@@ -1,10 +1,10 @@
 # 多 Agent 轴承设计系统总控规划
 
-- 文档版本：v0.4（Conversation Agent 五工具 ReAct 设计版；PR-00 工程冻结 BLOCKED）
-- 更新日期：2026-11-20
+- 文档版本：v0.5（五工具 ReAct 架构评审整改版；PR-00 工程冻结仍 BLOCKED）
+- 更新日期：2026-11-22
 - 当前开发仓库：GB412/bearing_agent_system
-- 当前阶段：PR-00 输入审计 + PR #2 ReAct 架构设计评审，未开始 Agent 业务开发
-- 状态：43 记录/324 字段历史审计已记录；PR-00 工程冻结 BLOCKED；PR #2 设计更新待验收
+- 当前阶段：PR-00 输入审计 + PR #2 ReAct 架构设计整改和验收，未开始 Agent 业务开发
+- 状态：43 记录/324 字段历史审计已记录；PR-00 工程冻结 BLOCKED；PR #2 架构/字段合同已修订，待验收
 
 ## 1. 项目定位
 
@@ -86,12 +86,12 @@
 
 业务确认状态只保留两种：
 
-- confirmed：该值已被用户明确提供/接受，或属于不需要用户选择、且由已验证的确定性规则生成的系统值。
-- unconfirmed：Agent 推荐、从候选项中建议或根据不完整信息推断，但尚未被用户接受。
+- confirmed：用户明确提供或接受了该值；**不等于**工程来源或规则已经审核。
+- unconfirmed：Agent 推荐、从候选项中建议或根据不完整信息推断，或用户只给出估计但尚未明确选定分析值。
 
 缺失值保持 null，并在完整性检查中报告；不增加“推荐中”“待审核”等第三种业务状态。
 
-来源和确认状态是不同维度。每个值仍应记录 source_kind、source_ref、unit、method/version 等溯源信息。比如一个推荐润滑剂可以有具体数据库来源，但在用户接受之前仍为 unconfirmed。
+来源和确认状态是不同维度。系统派生值及数据库物性以独立的 evidence_status/source_ref/规则版本说明其可信度，**不能冒充用户确认**。一个推荐润滑剂可以有数据库来源，但在用户接受之前仍为 unconfirmed。
 
 ### 4.3 禁止行为
 
@@ -103,15 +103,15 @@
 
 ## 5. 对话 Agent V1：自主 ReAct 与五工具（覆盖旧固定流程）
 
-最终行为设计详见 [Conversation Agent V1 架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md)。**本版以自主工具循环替换旧的「理解→更新→检查→选择动作→回复」固定五步骤，不另设独立提问规划器或 Supervisor。**
+最终行为设计详见 [Conversation Agent V1 架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md)，**字段/类型/单位/条件必需规则的唯一合同**见 [DGBDesignBrief/v1 字段目录](agent/DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md)。**本版以自主工具循环替换旧的「理解→更新→检查→选择动作→回复」固定五步骤，不另设独立提问规划器或 Supervisor。**
 
 | Agent 可见工具 | 具体职责 | 权限边界 |
 |---|---|---|
-| `update_design_brief` | 批量记录/修改参数，接受已展示的推荐提案 | 唯一受信参数写入；根据用户原话、revision、proposal 验证 |
-| `get_design_status` | 返回 known/missing/pending_confirmation/conflicts | 仅客观状态；**不返回问句规划/负责人/优先级分数** |
+| `update_design_brief` | 批量记录/修改参数，接受推荐，接受已展示的整份摘要 | 唯一受信写入；验证用户原话、操作级幂等、版本/summary_id |
+| `get_design_status` | 返回 known/missing/pending_confirmation/conflicts，保留估计值精度 | 仅客观状态；**不返回问句规划/负责人/优先级分数** |
 | `lookup_engineering_knowledge` | 查询有来源的型号、材料、润滑、游隙、配合知识 | 模型通用解释可以直接说；精确工程数值需有来源 |
 | `recommend_engineering_config` | 在当前受信工况下筛选审核配置并生成推荐包 | 推荐只生成提案，用户接受前不能置为 confirmed |
-| `finalize_design_brief` | `check/export` 最终需求检查及版本化交付 | 只判断用户层 Brief，不能宣称 RoBAS 324 字段计算就绪 |
+| `finalize_design_brief` | `check` 生成版本绑定摘要；`export` 导出草案或完整需求 | 用户整份确认交给工具① accept_brief；不能宣称 RoBAS 324 字段已可计算 |
 
 不再设独立 `confirm_recommendation`（合并进工具①）；用户明确选择 V1 **暂不增加** `check_solver_compatibility`；也没有 `question_planner`。
 
@@ -125,7 +125,7 @@
                                                └── 再次决定调用工具或回复
 ```
 
-用户回复会开启下一轮。每轮设可调整的调用次数与重复调用保护；状态写入串行、带 revision/request_id。工具①成功后顺带返回新状态，通常无需再调用工具②。模型**自主决定问什么和怎么问**，但不能修改客观必需字段定义、伪造用户确认或编造专业参数。
+用户回复会开启下一轮。每轮设可调整的调用次数与重复调用保护；状态写入串行，**turn_id 用于用户轮次，operation_key 用于单次写入幂等，revision 用于业务版本**；同轮两次不同写入不应被当作重复。工具①成功后顺带返回新状态，通常无需再调用工具②。模型**自主决定问什么和怎么问**，但不能修改客观必需字段定义、伪造用户确认或编造专业参数。
 
 ### 5.2 需求引导的柔性原则
 
@@ -135,7 +135,7 @@
 
 `DesignBrief` 是唯一可信参数来源；`PendingProposals` 仅是待确认方案；`ConversationHistory` 不作为可信参数副本。用户确认状态只有 confirmed/unconfirmed，来源与近似/范围信息单独记录。用户修改工况后相关派生量和旧推荐适用性失效，不擅自修改原有用户选择。
 
-工具⑤只检查用户层需求并允许导出缺项标记的草案。**完整 Brief、整份用户接受、RoBAS TEMPLATE_READY 和 RUNNABLE_READY 是不同概念**；后续 PR-06 仍独立建立严格工程协议 gate，暂不设 Solver Compatibility 工具不意味着忽略实际模型限制。
+工具⑤只检查用户层需求并允许导出缺项标记的草案；需要用户已看到指定 revision 摘要后用工具① accept_brief 完成整份接受。**完整 Brief、整份用户接受、RoBAS TEMPLATE_READY 和 RUNNABLE_READY 是不同概念**；后续 PR-06 仍独立建立严格工程协议 gate，暂不设 Solver Compatibility 工具不意味着忽略实际模型限制。
 
 ## 6. 目标、硬约束与计算能力边界
 
@@ -205,11 +205,11 @@ Conversation Agent（有界 ReAct 模型-工具循环）
 |---|---|---|---|
 | PR-00 / GitHub #1 | RoBAS 43/324 输入/数据源审计 | 历史字段事实已有；工程冻结 BLOCKED | 待验收 |
 | 架构设计 / GitHub #2 | 五工具 ReAct、提问职责、状态与验收规范 | 文档一致、无旧流程冲突 | 已修订待验收 |
-| PR-01 | 参数目录、DesignBrief、工具①写入和工具②简洁状态 | 无 LLM 正确写入、修订、拒绝假确认、缺项报告 | 未开始 |
-| PR-02 | 自主 ReAct 循环、接入工具①② | LLM 多轮问什么/怎么问自主、一次多参数、修订/打断 | 未开始 |
-| PR-03 | 工具③工程知识查询与来源控制 | 准确解释、工程数值有依据、缺数据不编造 | 未开始 |
-| PR-04 | 工具④审核配置推荐及工具①接受提案 | 整体/局部确认、旧工况提案失效 | 未开始 |
-| PR-05 | 工具⑤需求检查、草案/完整版导出 | 需求完成不冒充 RoBAS DATA ready，记录用户确认版本 | 未开始 |
+| PR-01 | DGB 字段目录、DesignBrief、工具①写入、操作级幂等、工具②简洁状态 | 无 LLM 测批量参数、同轮多写入、修订与冲突、估计/约束及缺项 | 未开始 |
+| PR-02 | 自主 ReAct 循环、工具①②及只读草案预览 | 真实模型提取多参数、不漏记、修订/打断、状态一致的回复 | 未开始 |
+| PR-03 | 工具③工程知识查询与推荐数据基础准备 | 准确解释、工程数值有依据、缺数据不编造；整理可审核的少量配置 | 未开始 |
+| PR-04 | 工具④审核配置推荐、字段依赖快照及工具①接受提案 | 整体/局部确认、相关条件变更才失效、无关修改不失效 | 未开始 |
+| PR-05 | 工具⑤摘要/检查/导出与工具① accept_brief | 具体摘要已展示、当前 revision 用户确认、可导出草案或正式需求，不冒充 DATA ready | 未开始 |
 | PR-06 | 独立 RoBAS 43/324 模板适配 | 五变量及依赖保留待优化、协议及工程来源受审 | 未开始 |
 | 后续 | 优化、实际求解、CAD 等 | 单独立项、验收后对接 | 暂不开发 |
 
@@ -245,7 +245,8 @@ Conversation Agent（有界 ReAct 模型-工具循环）
 - docs/00_MASTER_PLAN.md：本总控文档。
 - docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md：PR-00 范围、任务、交付物、验收条件。
 - docs/parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md：43 条记录的初始字段级盘点与待核实项。
-- docs/agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md：V1 最终五工具 ReAct 设计及接口合同。
+- docs/agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md：V1 五工具 ReAct 设计及接口合同。
+- docs/agent/DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md：用户层 canonical 字段、类型、单位、条件性必填与五优化槽合同。
 - docs/agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md：动态对话、工具循环、工程可信性与交付验收。
 - 后续文档按实际交付需要增加，不维持平行旧方案。
 
@@ -262,35 +263,37 @@ Conversation Agent（有界 ReAct 模型-工具循环）
 - 参考 DATA profile 的选取、锁定、确认和版本管理政策。
 - DGB 分析保持架与 CAD 保持架之间的映射缺口如何处理。
 - 现有 Windows golden case 是否有足够证据覆盖第一版目标工况。
-- 对话 Agent 的技术编排方式最终选择。
+- ReAct 编排的具体库与依赖版本在 PR-02 实施时锁定（自主五工具循环的架构决策已确定）。
 
-PR-00 未解决的工程计算阻断不得被宣称已关闭；用户层参数模型与对话交互可先独立开发，但必须由用户批准每个 PR，完整 RoBAS 模板就绪仍需通过工程审核。
+PR-00 未解决的工程计算阻断不得被宣称已关闭；**PR-01～02 的用户层参数模型/对话功能可在本架构验收、用户授权后独立推进**，不要求先解决全部 RoBAS 求解器问题。PR-06 的 RoBAS 模板就绪仍需独立工程审核。
 
 ## 14. 2026-11-20 审计进度、问题和后续准入
 
 见 [PR-00实际报告](pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) B01–B10。324字段主来源：用户41、CSV34、派生25、优化5、solver78、未经确认参考141。构造器默认不表示用户确认。五变量的依赖项也须待计算。TEMPLATE_READY与RUNNABLE_READY分开；当前两者均未达到。
 
-优先由人工核验构建身份、曲率/垫片/UI自动属性断链、缺失单位/模型条件、材料/润滑适用性、保持架与安装几何、同次UI目标工况案例。仅文档与只读审计工具已实现，不开发Agent/优化。PR-01仍未开始，不因本次提交而自动准入。
+优先由人工核验构建身份、曲率/垫片/UI自动属性断链、缺失单位/模型条件、材料/润滑适用性、保持架与安装几何、同次UI目标工况案例。当前仅有文档和历史只读审计，Agent/优化代码尚未实现；**PR-01 可在负责人批准后作为用户层工作独立开始**，但本次提交并不自动批准。
 
 完成度词汇：NOT_IMPLEMENTED（无实现）、IMPLEMENTED（有实现）、UNIT_TESTED（相应单元检查通过）、INTEGRATION_TESTED（模块联测有证据）、REAL_ENV_VERIFIED（指定真实环境范围验证）、ENGINEERING_REVIEWED（专业人员已审核）；等级必须附范围和证据。本次工具测试不等于真实模型、求解器、外部专业计算或工程验收。
 
 ## 15. 2026-11-22：Conversation Agent V1 方案修订与项目看板
 
-**最终设计入口：** [五工具 ReAct 详细架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md) · [ReAct 与五工具测试矩阵](agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md)。
+**最终设计入口：** [五工具 ReAct 详细架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md) · [DGBDesignBrief/v1 字段合同](agent/DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) · [ReAct 与五工具测试矩阵](agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md)。
 
 用户明确修订：采用 **Conversation Agent 自主 ReAct 工具循环**；工具②仅返回已知/缺失/待确认/冲突，**Agent 自己决定问什么、怎么问**；取消独立确认工具，其能力合并进工具①；工具⑤为最终需求检查与版本化导出；不开发独立 `check_solver_compatibility`。这是目前唯一有效的 Agent V1 行为设计，旧固定五步骤与五动作路由不再适用。
+
+**2026-11-22 评审整改**：先冻结 DGB 用户层字段合同；同轮多次写入以操作级幂等而不是共用整轮 request_id；增加工具① `accept_brief`，要求工具⑤生成的版本绑定摘要实际展示；结束回复不能虚称已写入；工具②保持简单但呈现估计/范围；推荐失效按字段依赖快照而不是全局 revision；PR-02 提前提供只读需求草案，PR-03 提前准备少量审核配置基础。
 
 ### 项目负责人状态看板
 
 | 工作线 | 当前事实 | 下一关口 |
 |---|---|---|
 | RoBAS 审计 | PR-00 历史 43/324 只读审计；工程冻结 BLOCKED | 工程适用性、真实协议和目标工况证据 |
-| Conversation Agent 架构 | GitHub #2 文档已修订；无业务代码 | 本次文档人工验收 |
-| 参数模型/状态管理 | 未实现 | PR-01 |
+| Conversation Agent 架构 | GitHub #2 五工具 ReAct + 字段合同 + 事务/整份确认整改；无业务代码 | 本次文档人工验收 |
+| 参数模型/状态管理 | 字段目录合同已写，代码未实现 | PR-01 |
 | 自主 ReAct 交互 | 未实现 | PR-02 |
 | 知识查询 | 原版资源审计仅有历史依据，未建立审核配置查询服务 | PR-03 |
 | 工程推荐 | 推荐策略设计完成，未建立可用推荐库 | PR-04 |
-| 最终需求交付 | 工具⑤合同已定义，尚未实现 | PR-05 |
+| 最终需求交付 | 工具⑤与工具① accept_brief 配合方式已明确，代码未实现 | PR-05 |
 | RoBAS 模板 | 旧映射问题待工程核实，无完整可靠转换 | PR-06，必须独立审核 |
 | 数据集/优化/CAD | 与当前 Agent 工作线分离 | 以后单独交付 |
 
