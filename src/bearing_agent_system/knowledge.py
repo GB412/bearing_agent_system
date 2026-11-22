@@ -28,17 +28,17 @@ UNSUPPORTED_VALUE_REQUESTS = {
     ),
     "clearance": re.compile(
         r"具体.*(?:数值|范围|区间|大小|是多少)|(?:数值|数值范围|"
-        r"微米|\\bum\\b|μm|µm|公差表|上下限|最大.*最小|"
-        r"多少.*(?:mm|毫米|微米)|\\d+\\s*(?:mm|µm|μm))",
+        r"微米|\bum\b|μm|µm|公差表|上下限|最大.*最小|"
+        r"多少.*(?:mm|毫米|微米)|\d+\s*(?:mm|µm|μm))",
         re.I
     ),
     "fit": re.compile(
-        r"\\b[HhKk]\\d+\\b|公差值|公差表|具体公差|"
-        r"多少微米|配合量|过盈量|\\bIT\\d+\\b", re.I
+        r"\b[HhKk]\d+\b|公差值|公差表|具体公差|"
+        r"多少微米|配合量|过盈量|\bIT\d+\b", re.I
     ),
     "lubrication": re.compile(
-        r"黏度|粘度|牌号|补脂周期|寿命|转速极限|\\bcSt\\b|"
-        r"\\bISO\\s*VG\\b|具体.*(?:温度|油脂|参数)", re.I
+        r"黏度|粘度|牌号|补脂周期|寿命|转速极限|\bcSt\b|"
+        r"\bISO\s*VG\b|具体.*(?:温度|油脂|参数)", re.I
     ),
 }
 # 6206-2RS, 6206-ZZ etc. are not this catalog's exact SKF 6206 record.
