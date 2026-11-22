@@ -81,6 +81,7 @@
 | T34 | 需求完整但用户未确认整份摘要 | 工具⑤区分 `brief_complete=true` 和 `brief_user_accepted=false`；只允许 COMPLETE_UNCONFIRMED，不标 CONFIRMED_COMPLETE | PR-05 |
 | T35 | 明确提供多字段后模型未调用工具①，却回复“已全部保存” | 结束回复检查不允许无依据的保存成功表述；真实 LLM 回归测试记录**漏提取**字段 | PR-02 |
 | T36 | 模型误把一轮 `request_id` 当全部工具写入的同一个幂等 key | 测试必须抓到该错误；以操作级键做幂等，同一轮两个不同操作都能执行 | PR-01 |
+| T37 | 完整需求 revision=12，用户确认该 revision 的 summary-12 | `accept_brief` 保存独立接受记录，但 **brief_revision 仍为 12**；再次调用同样接受请求幂等；不能因确认动作本身立即失效 | PR-05 |
 
 ## 4. ReAct 自主循环专项测试
 
