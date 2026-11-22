@@ -1,8 +1,8 @@
 # Conversation Agent V1：受约束 ReAct 架构与工具合同
 
-> 版本：v1.1（2026-11-22，覆盖原 v1.0 固定五步骤设计）；状态：**设计规范，Agent 业务代码尚未实现**。  
+> 版本：v1.2（2026-11-22，PR #2 工程审查修订）；状态：**设计规范，Agent 业务代码尚未实现**。  
 > GitHub：GB412/bearing_agent_system，设计 PR #2；PR-00 #1 仍在评审。  
-> 依据：[项目总控](../00_MASTER_PLAN.md) · [动态交互验收](CONVERSATION_AGENT_V1_ACCEPTANCE.md) · [RoBAS PR-00 审计](../pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) · [324 字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)。  
+> 依据：[项目总控](../00_MASTER_PLAN.md) · [动态交互验收](CONVERSATION_AGENT_V1_ACCEPTANCE.md) · [RoBAS PR-00 审计](../pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) · [DGBDesignBrief/v1 字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) · [324 字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)。  
 > 本文件**替代**原有「interpret → validate → assess → choose_next_action → compose」固定流程及旧五动作路由，不新增平行架构。
 
 ## 0. 项目负责人：一页看懂 V1
@@ -22,20 +22,24 @@
 
 **本阶段不做**：Dw/Z/Dpw/fi/fo 的优化、RoBAS EXE 求解、CAD、多轴承类型、多工况设计、自动工程批准。PR-00 已记录 43 条 DATA / 324 字段，但工程协议冻结仍 **BLOCKED**。
 
-## 1. 需求范围和参数角色
+## 1. 需求范围、字段合同和阶段准入
 
-| 参数组 | V1 目标 | 获取方式 |
+用户层参数不是一张任意可增字段的 JSON。**PR-01 先冻结 [DGBDesignBrief/v1 字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md)**，它是工具①的字段/类型白名单、工具②的缺项依据和工具⑤的需求层完整性依据；RoBAS 43/324 是**不同层级**的协议目录，不能混用。
+
+| 类别 | 典型字段 | 当前规则 |
 |---|---|---|
-| 类型/应用 | 单列深沟球轴承；应用场景、可选号 | 用户描述；型号目录只在有真实数据时查询 |
-| 固定外形 | d、D、B 具体数值（mm） | 用户明确输入/型号查表后确认 |
-| 单稳态工况 | 内外圈转速、轴承实际 Fr/Fa、必要方向、假定工作温度 | 用户明确输入；歧义追问；不能用「高速/轻载」代替数值 |
-| 工程配置 | 内外圈/球/保持架材料及类型、润滑方式/润滑剂、初始游隙、内外圈配合 | 用户自选，或工具④推荐后用户接受 |
-| 条件项 | 轴内径、座外径、姿态、力矩、错位、预紧等 | 当前计算路径确实需要且没有审核配置时才询问 |
-| 设计要求 | 最低寿命等硬约束候选、功耗等目标/偏好 | 用户自然语言描述；可评估性分别记录 |
-| 优化预留 | Dw、Z、Dpw、fi、fo | 默认待优化；用户可锁定某项/设置范围；不主动问最终值 |
-| 内部配置 | 物性、几何派生、求解器控制与 RoBAS profile | 后续有依据的确定性适配；不转成用户问卷 |
+| 固定设计边界 | d、D、B；内外圈 rpm；单轴承 Fr/Fa；假定工作温度 | 需要明确语义、单位、来源；范围/估计不得静默当固定值 |
+| 用户选择的工程配置 | 内外圈/钢球/保持架材料、保持架类型、润滑、初始游隙、内外圈配合 | 用户直接指定或接受审核推荐；数据来源可靠性与用户接受分开 |
+| 条件项 | 轴/座尺寸、力矩/错位、方向、特殊装配 | 由条件性规则判断是否需要，不将全部底层字段做用户问卷 |
+| 用户目标和限制 | 最低寿命、功耗偏好、D 的上限等 | 以结构化约束/偏好记录，不假装已成为优化器可计算指标 |
+| 五个优化槽 | Dw、Z、Dpw、fi、fo | 默认 `optimize/null`，允许用户设置上下限或锁定值 |
+| 工程数据/求解器配置 | 材料物性、派生几何、Solver profile | 由未来可信数据源/审核映射提供，不混成用户事实 |
 
-原则：用户不需要知道 RoBAS 324 字段；必须区分用户事实、推荐但未接受的提案、已确认选择、系统派生量、优化变量与尚未审核的求解器参考值。
+**参数目录必须可执行，而不只是自然语言列表**：每个字段定义 canonical path、类型、单位、R 必需 / C 条件必需 / O 可选 / OPT 优化 / SYS 系统、可接受的值形状、跨字段检查，以及用户层 `brief_complete` 判定条件。V1 的条件判断用简单函数，没必要建立复杂规则引擎。
+
+例如 `D≤52 mm` 应进入 `requirements.geometric_bounds[]`，不能把 `dimensions.D_mm` 写成已确定的 52；`CN/C3` 游隙组是区间，不得擅自视作唯一初始/工作游隙值。`operating.temperature_c` 明确是选定的分析工作温度，不能直接由环境温度替代。
+
+PR-00 工程审计未冻结的事项仍阻断后续真实 RoBAS 模板就绪，但**不阻断单纯的用户层字段模型和对话能力开发（须经项目负责人批准 PR）**。
 
 ## 2. 系统架构
 
@@ -68,67 +72,96 @@ Conversation Agent（一个 LLM，ReAct 决策循环）
 
 建议 Python 3.11+、Pydantic、单进程、SQLite 存业务数据，LLM 支持 tool calling。编排用最小 LangGraph/等价原生 agent loop；选库前锁定实际依赖版本，不为了 ReAct 名称而新增 Supervisor、自定义 planning graph 或多个状态副本。
 
-## 3. 一轮执行和 ReAct 循环——取代旧固定五步骤
+## 3. 每轮 ReAct 自主工具循环与安全收尾
 
 ```text
-START / 用户新消息
+START / 收到一条用户消息（turn_id、client_expected_revision）
   ↓
-加载 session 对应 DesignBrief、最近对话、待确认提案及状态摘要
+加载受信 DesignBrief、会话、有效提案、精简需求状态
   ↓
-Conversation Agent (LLM)
-  ├─ 直接向用户回复/提问/解释 → final_response_check → END
-  └─ 自主选工具 → 权限/参数/预算校验 → 执行
-                                         ↓
-                                   返回结构化结果
-                                         ↓
-                                   更新上下文与状态
-                                         │
-                                         └──── 回到同一个 Agent (LLM)
+Conversation Agent（LLM）
+  ├─ 选择一个或多个工具 → guarded_tools 校验、执行、刷新状态
+  │                              ↓
+  │                         工具结果返回 LLM
+  │                              └────→ 同一 Agent 再次自主决策
+  └─ 回复用户/提问 → finalize_response 校验 → 保存回合 → END
 ```
 
-**模型在单轮内可以反复决定下一步行动，但不能无限循环。** 每个用户消息完成后，必须把交互控制权还给用户；不能在没有用户消息时自行确认设计值。建议初期每轮最多约 5–6 次业务工具调用（可配置、需真实测试调整），限制重复同参数调用、超过预算后可靠停止。可根据使用情况再设模型调用上限/超时和只读补查限制。
+**ReAct 负责**自主选择提问、解释、知识查询、工程推荐、记录用户事实或请求交付。**程序负责**工具调用的许可、受信写入、数据完整性、幂等、必要状态刷新和最终回复真实性；不是固定问卷，也不设置独立 Planning Agent。
 
-**结束条件**：无需工具即可回答；需要用户补充/澄清；等待用户接受推荐；本轮已可汇总；本轮工具失败/无可靠数据；预算耗尽；用户要求交付且工具⑤已返回结果。最后一次自然语言回复不能重写工具返回的事实。
+**预算与终止**：建议首版每轮约 5–6 次业务工具调用上限（配置项，不是必须用完）、模型调用次数上限、重复调用检测和工具超时。已能回答、需要用户补充或确认、资料不可信、工具失败或预算耗尽时应回复并结束本轮。不能通过不断查询解决用户没有提供的载荷等信息。
 
-**不做的事**：不要求固定「提取→写入→检查→决策→回复」五个 LLM/图节点；不强制每轮调用工具②；不要求每次先查工具③才可使用工具④；无独立 ASK/CLARIFY/RECOMMEND/CONFIRM/SUMMARIZE 路由节点（这些是自然语言行为，不是五个工具或 Agent）。
+**最小调用原则**：同一消息的多个明确参数优先一次批量工具①调用。工具①写入后自动返回最新需求摘要；通常不必再调用工具②。工具④内部从受信状态和知识仓检索，不强迫 LLM 先调用工具③。工具⑤用于用户要求检查/交付或需求汇总，不能在每轮无理由调用。
 
-**调用顺序**：同一用户消息涉及参数更新与推荐时，先完成参数受信更新，再基于最新 DesignBrief 生成推荐。所有**写入串行、版本控制**；可以并行的只读调用必须使用一致的 DesignBrief revision。工具①写入成功后自动附上刷新后的精简状态，避免模型机械重复调用工具②。
+**写入顺序**：写入与依赖本次写入的查询/推荐串行；只读请求仅在同一业务 revision 且相互独立时才可并行。模型不可在旧 revision 上推荐新工况，也不能忽略版本冲突后宣称成功。
 
-**建议最小图**：
+### 3.1 三类 ID：解决 ReAct 单轮多次写入冲突（PR-01 必须实现）
 
-```text
-prepare_context → agent ──(tool_calls?)──► guarded_tools ──► agent
-                     └──(response)──► finalize_response → END
-```
+| 标识 | 来源/含义 | 使用方式 |
+|---|---|---|
+| `turn_id`（或 API `request_id`） | 服务端记录的一条用户消息 | 整轮去重和恢复，不得直接把它当成“一轮只允许一次业务写入”的键 |
+| `tool_call_id` / 规范化 `operation_key` | 当前轮内一次具体工具操作 | 操作级幂等：相同逻辑操作的重试只执行一次，**同一轮不同操作均允许执行** |
+| `brief_revision` | DesignBrief 已提交快照版本 | 每次有效原子变更递增；后续调用从实际最新版本读取/校验 |
 
-`prepare_context` 与 `finalize_response` 可用普通应用函数，不强制做图节点。用户确认与提交操作在普通对话回合完成，不使用复杂的长时间暂停/恢复机制；必要的会话持久化和业务持久化分开。
+工具调用的操作键应由服务端结合 `session/turn`、操作类型、规范化 payload（含 proposal、接受范围）计算或登记。不能仅用整轮 `request_id` 去重每次写入，也不能只信模型自报的 `tool_call_id`。重放相同操作返回上次结果；对同一字段重复提交同样数值应为无变更；有冲突/不同值时要求重新检查，不悄悄覆盖。
+
+客户端 `expected_revision` 用于新用户轮次的并发校验；一轮内部第一次写入后，后续受信调用使用**服务端已经提交的最新 revision**，并再次检查是否有外部并发修改。若有竞争性修改，拒绝过期写入并刷新上下文，不能静默重试覆盖他人变更。
+
+### 3.2 防漏提取与回复一致性
+
+**模型可直接回复普通概念问题，但不得只用一句“已记录”代替必要的工具①写入。** 凡当前用户消息明确提供/修订/接受设计参数，应先提出受信更新工具调用。对同轮多字段优先批量写入，工具拒绝字段时必须如实反馈。
+
+`finalize_response` 是普通确定性收尾函数，至少校验：回复声称“已保存/已确认”的字段在本轮真实成功工具操作或当前状态中有依据；“需求已完成”必须有工具⑤的检查结果；“RoBAS 输入可计算”不能源自工具⑤。模型不能用自然语言推翻工具错误结果。
+
+但**只核对工具记录不能证明模型没有漏识别原话中的参数**。PR-02 应安排有人工标注的多字段抽取测试；如果漏提取显著，可以先增加轻量的数值/字段候选扫描与“可能未处理”提醒（不是第二个 Agent，也不替代 LLM 语义解释），而不是立即增加第二次模型调用。
+
+`tool_trace_summary` 记录调用名、操作键、变更摘要、错误原因、来源、耗时与次数，不记录私有推理过程或把旧对话历史当业务事实。
 
 ## 4. 五个工具：输入输出、权限、失败条件
 
-### 4.1 工具① `update_design_brief`（唯一写入）
+### 4.1 工具① `update_design_brief`（唯一受信写入）
 
-用途：批量保存用户明确事实、修订用户事实、接受以前已经展示且当前仍有效的推荐提案。不再有独立确认工具。
+它是**一个工具、四类操作**，不能再创建独立确认工具：
 
-建议 schema：
+| operation | 场景 | 写入内容 |
+|---|---|---|
+| `set` | 用户提供原先未知的参数 | 一个或多个合法字段与用户证据 |
+| `replace` | 用户明确纠正/修改已知参数 | 对应字段更新、来源、依赖失效 |
+| `accept_proposal` | 用户接受当前展示的材料/润滑等推荐 | 仅接受 `accepted_paths` 范围、当前有效的方案 |
+| **`accept_brief`** | 用户明确接受已展示的整份需求摘要 | 对该 **revision/summary_id** 记录整体确认，不改变参数值 |
+
+工具调用建议为**判别联合类型**，不是在一个宽松 JSON 中同时混用 `changes` 和 `proposal_id`：
 
 ```json
 {
-  "operation": "set | replace | accept_proposal",
-  "changes": [
-    {"path": "operating.inner_speed_rpm", "raw_value": "18000转", "evidence_span": "内圈转速18000转"}
-  ],
-  "proposal_id": null,
-  "accepted_paths": []
+  "operation": "replace",
+  "changes": [{"path":"operating.inner_speed_rpm","raw_value":"18000转","evidence_span":"内圈转速改为18000转"}]
 }
 ```
 
-`set/replace` 使用 `changes`；`accept_proposal` 使用 `proposal_id` 和可选 `accepted_paths`，不混在一个危险的无约束 payload 里。模型不得传 `confirmed=true`、`confirmed_by=user`、`source=user` 或 `revision` 来伪造授权。
+```json
+{
+  "operation": "accept_proposal",
+  "proposal_id": "materials-A",
+  "accepted_paths": ["engineering.materials.inner_ring_id","engineering.materials.ball_id"]
+}
+```
 
-**服务器端隐式注入**：`session_id`、用户真实消息、`message_id`、`request_id`、`expected_revision`。这些值从经认证的会话入口获取，而不是信任模型自填。工具检查 evidence_span 在真实消息中，验证明确语义、参数目录、单位/范围、冲突、用户锁定规则、有效推荐提案；需要澄清时拒绝相应字段并说明理由。证据字符串的存在**本身不等于**用户已确认；模糊语言和推断不能直接视为精确值。
+```json
+{
+  "operation": "accept_brief",
+  "brief_revision": 12,
+  "summary_id": "summary-12-digest"
+}
+```
 
-提交采用单次原子写入、幂等 request_id；有冲突时不得悄悄覆盖。仅当实际发生已接受的有效状态变更时 revision 增加。一次消息可批量更新多个字段，不应每个字段单独调用一次工具。
+**来源保护**：真实 `session_id/turn_id/message_id`、用户原始消息、当前 revision、调用操作键由服务器注入或验证，不能相信 LLM 自填。模型不得设置 `confirmed=true`、伪造用户来源或替用户确认。原文片段存在不是充分授权；工具必须检查语义明确、数值/单位、适用范围和提案引用，不能仅靠字符串包含判断同意。
 
-返回：`applied_changes`、`rejected_changes`、`revision`、`invalidated_dependent_proposals`、简洁 `design_status`。如用户修改转速，不自动换材料；只对旧材料推荐的适用性标记待核查。
+**整份确认保护**：`summary_id` 应关联工具⑤生成的指定版 **DesignBrief 内容摘要/哈希** 和实际已向用户展示的摘要记录；必须核对当前修订与用户当前明确接受表达。只说“确认”但有多个不同摘要候选时先澄清。调用 `accept_brief` 后若后续 revision 变化，整体确认自动不适用于新 revision。
+
+**操作结果**：`applied_changes`、`rejected_changes`、`revision`、`invalidated_proposals`、`design_status`；`accept_brief` 另返回 `brief_user_accepted_revision`。无实际变更不必增 revision；同一轮可以先修改转速再接受不受其影响的提案，但需要两个独立、幂等的操作键；具体提案有效性按依赖快照检查，而非简单看全局 revision。
+
+用户明确的近似值可保留 `precision=approximate, confirmed=false`；用户后续明确“就以 18000 rpm 作为本次分析假定值”时才能记录可用于固定工况的确定分析输入，并保存这一假设的用户依据。不要将近似观测当成已验证的物理真值。
 
 ### 4.2 工具② `get_design_status`（简单只读）
 
