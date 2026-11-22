@@ -20,6 +20,8 @@
 |---|---|---|---|
 | 6206 单列深沟球轴承 | d=30、D=62、B=16 mm | [SKF 6206 产品页](https://www.skf.com/si/products/rolling-bearings/ball-bearings/deep-groove-ball-bearings/productid-6206) | 已记录来源，未做专业审核 |
 | CN 与 C3 | CN 为普通径向游隙、C3 比普通等级大 | [NTN 工程 FAQ](https://ntnamericas.com/technical-resources/faqs/) | 已记录来源，未做专业审核 |
+| 内外圈配合原则 | 一般旋转套圈配合需防蠕动，实际需看载荷与材料 | [NTN 配合技术说明](https://ntnamericas.com/technical-resources/shaft-housing-fits/) | 已记录来源，未做专业审核 |
+| 脂润滑通用特性 | 润滑脂更容易留存在轴承布置中 | [SKF 选脂说明](https://www.skf.com/il/products/super-precision-bearings/principles/bearing-selection-process/lubrication/suitable-grease) | 已记录来源，未做专业审核 |
 
 `review_status=SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED` 表示**出处已记录，不代表
 工程人员已审核，更不代表用户已选择该项**。6206 数据仅包含所引产品的主要外形尺寸；
