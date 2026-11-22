@@ -7,7 +7,14 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from .models import OptimizationSlot, ParameterValue, Requirement, Source, TrustedContext, UpdateChange
+from .models import (
+    OptimizationSlot,
+    ParameterValue,
+    Requirement,
+    Source,
+    TrustedContext,
+    UpdateChange,
+)
 
 
 @dataclass(frozen=True)
