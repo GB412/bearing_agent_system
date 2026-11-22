@@ -110,7 +110,7 @@ class ConversationAgent:
                     "本轮曾开始但未确认结束。为避免重复写入已停止自动重试，请使用 /status 检查。",
                     revision, error_type="UNCERTAIN_PREVIOUS_TURN",
                 )
-            brief, revision = self.service.get_brief(session_id)
+            _, revision = self.service.get_brief(session_id)
             status = self.service.get_design_status(session_id).model_dump(mode="json")
             previous_messages = self.history.history(session_id, self.history_turns)
             self.history.begin_turn(session_id, user_turn_id, user_message)
