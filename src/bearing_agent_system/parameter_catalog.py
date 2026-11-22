@@ -67,6 +67,9 @@ UNIT_FACTORS: dict[str, dict[str, float]] = {
 }
 
 NUMERIC_LITERAL = re.compile(r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?")
+NUMERIC_WITH_UNIT = re.compile(
+    r"(?<![A-Za-z0-9])([-+]?\d+(?:\.\d+)?)\s*(rpm|rps|kN|mm|cm|µm|um|degC|°C|℃|N|m|K)(?![A-Za-z])"
+)
 APPROXIMATE_MARKERS = ("大约", "大概", "约", "左右", "估计", "差不多", "approx", "roughly", "about")
 
 
@@ -93,6 +96,26 @@ def require_evidence(change: UpdateChange, context: TrustedContext) -> None:
             )
             if not (change.value == 0 and zero_facts):
                 raise InvalidChange("Numeric value is not supported by the cited text")
+
+
+def _check_unit_against_evidence(change: UpdateChange, spec: FieldSpec) -> None:
+    """Reject explicit unit contradictions, without inferring missing units in PR-01."""
+    if spec.unit is None or change.unit is None or isinstance(change.value, bool):
+        return
+    matches = [(float(num), unit) for num, unit in NUMERIC_WITH_UNIT.findall(change.evidence_span)]
+    if not matches:
+        return
+    observed = [unit for num, unit in matches if isinstance(change.value, (int, float))
+                and math.isclose(float(change.value), num, abs_tol=1e-9)]
+    if not observed:
+        # Bearing-size triple '25×52×15mm' may carry one unit at the end.
+        relevant = set(UNIT_FACTORS.get(spec.unit, {})) | ({"K"} if spec.unit == "degC" else set())
+        observed = [unit for _, unit in matches if unit in relevant]
+    if observed and any(unit != change.unit for unit in observed):
+        # '°C', '℃' and 'degC' are equivalent representations, unlike K.
+        aliases = {"°C", "℃", "C", "degC"}
+        if spec.unit != "degC" or not all(unit in aliases and change.unit in aliases for unit in observed):
+            raise InvalidChange("Proposed unit conflicts with explicit unit in trusted user text")
 
 
 def _finite_number(value: Any) -> float:
@@ -206,6 +229,7 @@ def normalize_change(change: UpdateChange, context: TrustedContext) -> Parameter
     if spec.kind == "slot":
         return _make_slot(change, source)
     if spec.kind == "number":
+        _check_unit_against_evidence(change, spec)
         value = _normalize_number(change.value, change.unit, spec)
     elif spec.kind == "string":
         if not isinstance(change.value, str) or not change.value.strip():
