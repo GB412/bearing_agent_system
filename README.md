@@ -30,4 +30,4 @@
 
 已列出43条记录/324字段的原版源码、默认值、getter/setter、CSV/SQLite资源和实际DGB案例证据。工程输入冻结仍BLOCKED，问题B01–B10见[审计报告](docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md)。本仓库没有Agent或优化实现，未启动PR-01，不自动合并。
 
-[审计结论](docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) · [历史验证记录](docs/pr00/VALIDATION.md)
+[审计结论](docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md)
