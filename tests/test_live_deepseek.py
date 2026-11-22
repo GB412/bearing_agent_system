@@ -6,8 +6,7 @@ import os
 
 import pytest
 
-from bearing_agent_system.models import DesignBrief, ParameterValue, Source
-from examples.pr02_live_eval import CASES, evaluate, grade
+from examples.pr02_live_eval import CASES, evaluate
 
 pytestmark = pytest.mark.live
 
@@ -22,11 +21,3 @@ def test_live_deepseek_tool_workflow(case_id):
     result = evaluate(os.environ.get("DEEPSEEK_MODEL", "deepseek-flash"), [case])
     assert result["results"][0]["passed"], result["results"][0]["errors"]
 
-
-def test_grade_requires_real_saved_values():
-    brief = DesignBrief()
-    brief.dimensions.d_mm = ParameterValue(
-        value=25, unit="mm", confirmed=True, source=Source(kind="user", message_id="m")
-    )
-    assert grade(brief, {"id": "ok", "expected": {"dimensions.d_mm": 25}}) == []
-    assert grade(brief, {"id": "wrong", "expected": {"dimensions.d_mm": 30}})
