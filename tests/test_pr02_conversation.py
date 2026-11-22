@@ -299,7 +299,8 @@ def test_read_only_progress_question_can_report_past_saved_values(environment):
     )])
     agent = ConversationAgent(service, history, model)
     result = agent.respond("s", "目前已经保存哪些参数？", turn_id="progress")
-    assert "此前已经保存" in result.answer
+    assert "内径 d=25.0mm" in result.answer
+    assert "当前 DesignBrief 草案" in result.answer
     assert result.tool_trace == []
 
 
