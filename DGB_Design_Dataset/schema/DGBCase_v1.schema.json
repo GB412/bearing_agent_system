@@ -1,0 +1,584 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:dgb-dataset:DGBCase:v1",
+  "title": "DGBCase/v1 with verified RoBAS resource snapshots",
+  "description": "结构和来源记录约束，非工程设计合理性或RoBAS求解通过的证明。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset_schema_version",
+    "case_id",
+    "case_title",
+    "case_family",
+    "scenario_type",
+    "data_origin",
+    "design_intent",
+    "scenario_description",
+    "initial_user_request",
+    "reference_brief",
+    "robas_catalog_evidence",
+    "validation",
+    "dialogue_refs"
+  ],
+  "properties": {
+    "dataset_schema_version": {
+      "const": "DGBCase/v1"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^DGB-[0-9]{4,}$"
+    },
+    "case_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "case_family": {
+      "const": "single_row_deep_groove_ball"
+    },
+    "scenario_type": {
+      "const": "single_steady_state"
+    },
+    "data_origin": {
+      "const": "synthetic_scenario_with_verified_robas_catalog_records"
+    },
+    "design_intent": {
+      "type": "string"
+    },
+    "scenario_description": {
+      "type": "string"
+    },
+    "initial_user_request": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reference_brief": {
+      "$ref": "#/$defs/brief"
+    },
+    "robas_catalog_evidence": {
+      "type": "object",
+      "required": [
+        "archive_sha256",
+        "model",
+        "materials",
+        "lubricants",
+        "reference_geometry",
+        "clearance_warning"
+      ],
+      "properties": {
+        "archive_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "model": {
+          "type": "object",
+          "required": [
+            "matched_row",
+            "exact_catalog_match"
+          ]
+        },
+        "materials": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/snapshot"
+          }
+        },
+        "lubricants": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/snapshot"
+          }
+        },
+        "reference_geometry": {
+          "type": "object"
+        },
+        "clearance_warning": {
+          "type": "object"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "schema_valid",
+        "robas_model_record_matched",
+        "robas_material_records_matched",
+        "robas_lubricant_records_matched",
+        "engineering_reviewed",
+        "robas_solver_verified",
+        "status"
+      ],
+      "properties": {
+        "schema_valid": {
+          "const": true
+        },
+        "robas_model_record_matched": {
+          "const": true
+        },
+        "robas_material_records_matched": {
+          "const": true
+        },
+        "robas_lubricant_records_matched": {
+          "const": true
+        },
+        "engineering_reviewed": {
+          "type": "boolean"
+        },
+        "robas_solver_verified": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "unmapped_user_facts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "dialogue_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "parameter": {
+      "type": "object",
+      "required": [
+        "value",
+        "unit",
+        "confirmed",
+        "precision",
+        "source"
+      ],
+      "properties": {
+        "value": {},
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "precision": {
+          "enum": [
+            "exact",
+            "approximate",
+            "range",
+            "unknown"
+          ]
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "kind"
+          ]
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "catalog_match": {
+          "type": "object",
+          "required": [
+            "file",
+            "key_column",
+            "key_value",
+            "verified",
+            "source_sha256"
+          ],
+          "properties": {
+            "verified": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "brief": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "bearing",
+        "dimensions",
+        "operating",
+        "engineering",
+        "requirements",
+        "optimization_slots",
+        "solver_context",
+        "delivery_state"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "DGBDesignBrief/v1"
+        },
+        "bearing": {
+          "type": "object",
+          "required": [
+            "type",
+            "application",
+            "model"
+          ],
+          "properties": {
+            "type": {
+              "const": "DGB"
+            },
+            "application": {
+              "$ref": "#/$defs/parameter"
+            },
+            "model": {
+              "$ref": "#/$defs/parameter"
+            }
+          }
+        },
+        "dimensions": {
+          "type": "object",
+          "required": [
+            "d_mm",
+            "D_mm",
+            "B_mm"
+          ],
+          "properties": {
+            "d_mm": {
+              "$ref": "#/$defs/parameter"
+            },
+            "D_mm": {
+              "$ref": "#/$defs/parameter"
+            },
+            "B_mm": {
+              "$ref": "#/$defs/parameter"
+            }
+          }
+        },
+        "operating": {
+          "type": "object",
+          "required": [
+            "inner_speed_rpm",
+            "outer_speed_rpm",
+            "radial_load_n",
+            "axial_load_n",
+            "temperature_c"
+          ],
+          "properties": {
+            "inner_speed_rpm": {
+              "$ref": "#/$defs/parameter"
+            },
+            "outer_speed_rpm": {
+              "$ref": "#/$defs/parameter"
+            },
+            "radial_load_n": {
+              "$ref": "#/$defs/parameter"
+            },
+            "axial_load_n": {
+              "$ref": "#/$defs/parameter"
+            },
+            "temperature_c": {
+              "$ref": "#/$defs/parameter"
+            }
+          }
+        },
+        "engineering": {
+          "type": "object",
+          "required": [
+            "materials",
+            "cage",
+            "lubrication",
+            "clearance",
+            "fits"
+          ],
+          "properties": {
+            "materials": {
+              "type": "object",
+              "required": [
+                "inner_ring_id",
+                "outer_ring_id",
+                "ball_id"
+              ],
+              "properties": {
+                "inner_ring_id": {
+                  "$ref": "#/$defs/parameter"
+                },
+                "outer_ring_id": {
+                  "$ref": "#/$defs/parameter"
+                },
+                "ball_id": {
+                  "$ref": "#/$defs/parameter"
+                }
+              }
+            },
+            "cage": {
+              "type": "object",
+              "required": [
+                "type",
+                "material_id"
+              ],
+              "properties": {
+                "type": {
+                  "$ref": "#/$defs/parameter"
+                },
+                "material_id": {
+                  "$ref": "#/$defs/parameter"
+                }
+              }
+            },
+            "lubrication": {
+              "type": "object",
+              "required": [
+                "mode",
+                "lubricant_id"
+              ],
+              "properties": {
+                "mode": {
+                  "$ref": "#/$defs/parameter"
+                },
+                "lubricant_id": {
+                  "$ref": "#/$defs/parameter"
+                }
+              }
+            },
+            "clearance": {
+              "type": "object",
+              "required": [
+                "group",
+                "initial_radial_clearance_mm"
+              ],
+              "properties": {
+                "group": {
+                  "$ref": "#/$defs/parameter"
+                },
+                "initial_radial_clearance_mm": {
+                  "$ref": "#/$defs/parameter"
+                }
+              }
+            },
+            "fits": {
+              "type": "object",
+              "required": [
+                "inner_ring",
+                "outer_ring"
+              ],
+              "properties": {
+                "inner_ring": {
+                  "$ref": "#/$defs/parameter"
+                },
+                "outer_ring": {
+                  "$ref": "#/$defs/parameter"
+                }
+              }
+            }
+          }
+        },
+        "requirements": {
+          "type": "object",
+          "required": [
+            "constraints",
+            "preferences",
+            "geometric_bounds"
+          ],
+          "properties": {
+            "constraints": {
+              "type": "array"
+            },
+            "preferences": {
+              "type": "array"
+            },
+            "geometric_bounds": {
+              "type": "array"
+            }
+          }
+        },
+        "optimization_slots": {
+          "type": "object",
+          "required": [
+            "Dw_mm",
+            "Z",
+            "Dpw_mm",
+            "fi",
+            "fo"
+          ],
+          "properties": {
+            "Dw_mm": {
+              "type": "object",
+              "required": [
+                "mode",
+                "value",
+                "bounds"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "optimize",
+                    "locked",
+                    "bounded"
+                  ]
+                },
+                "value": {},
+                "bounds": {}
+              }
+            },
+            "Z": {
+              "type": "object",
+              "required": [
+                "mode",
+                "value",
+                "bounds"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "optimize",
+                    "locked",
+                    "bounded"
+                  ]
+                },
+                "value": {},
+                "bounds": {}
+              }
+            },
+            "Dpw_mm": {
+              "type": "object",
+              "required": [
+                "mode",
+                "value",
+                "bounds"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "optimize",
+                    "locked",
+                    "bounded"
+                  ]
+                },
+                "value": {},
+                "bounds": {}
+              }
+            },
+            "fi": {
+              "type": "object",
+              "required": [
+                "mode",
+                "value",
+                "bounds"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "optimize",
+                    "locked",
+                    "bounded"
+                  ]
+                },
+                "value": {},
+                "bounds": {}
+              }
+            },
+            "fo": {
+              "type": "object",
+              "required": [
+                "mode",
+                "value",
+                "bounds"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "optimize",
+                    "locked",
+                    "bounded"
+                  ]
+                },
+                "value": {},
+                "bounds": {}
+              }
+            }
+          }
+        },
+        "solver_context": {
+          "type": "object",
+          "required": [
+            "mode",
+            "profile_ref"
+          ],
+          "properties": {
+            "mode": {
+              "const": -1
+            },
+            "profile_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "delivery_state": {
+          "type": "object",
+          "required": [
+            "brief_user_accepted",
+            "brief_complete",
+            "robas_template_ready"
+          ],
+          "properties": {
+            "brief_user_accepted": {
+              "type": "boolean"
+            },
+            "brief_complete": {
+              "type": "boolean"
+            },
+            "robas_template_ready": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "required": [
+        "name",
+        "source_path",
+        "source_sha256",
+        "csv_line",
+        "raw_row",
+        "parsed_properties",
+        "exact_catalog_match"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "csv_line": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "raw_row": {
+          "type": "object"
+        },
+        "parsed_properties": {
+          "type": "object"
+        },
+        "exact_catalog_match": {
+          "const": true
+        }
+      }
+    }
+  }
+}
