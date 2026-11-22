@@ -1,4 +1,4 @@
-"""Only two model-visible tools; session identity and user evidence are server owned."""
+"""Bounded agent tools; brief writes and engineering knowledge remain separate."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from langchain_core.tools import BaseTool, tool
 from pydantic import ValidationError
 
 from .brief_service import DesignBriefService
+from .knowledge import KnowledgeRepository
 from .models import TrustedContext, UpdateBatch
 from .parameter_catalog import FIELDS
 
@@ -22,6 +23,7 @@ class TurnTools:
     message_id: str
     user_message: str
     max_calls: int = 6
+    knowledge: KnowledgeRepository = field(default_factory=KnowledgeRepository)
     trace: list[dict[str, Any]] = field(default_factory=list)
     _seen: set[str] = field(default_factory=set, repr=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
@@ -51,6 +53,8 @@ class TurnTools:
                     "design_status": status.model_dump(mode="json"),
                     "schema_version": brief.schema_version,
                 }
+            elif name == "lookup_engineering_knowledge":
+                result = self.knowledge.lookup(args.get("topic", ""), args.get("query", ""))
             else:
                 try:
                     batch = UpdateBatch.model_validate(args)
@@ -132,7 +136,22 @@ class TurnTools:
             """
             return context._run("get_design_status", {})
 
-        return [update_design_brief, get_design_status]
+        @tool("lookup_engineering_knowledge")
+        def lookup_engineering_knowledge(topic: str, query: str) -> dict[str, Any]:
+            """Look up source-documented DGB engineering facts (read-only).
+
+            Topics: bearing_model, clearance, material, lubrication, fit.
+            Look up manufacturer-specific numbers before quoting them.
+            FOUND results contain source, applicability, limitations and review_status.
+            All included records are NOT engineering-reviewed; never treat them as
+            verified recommendations or use them as automatic user confirmation.
+            NOT_FOUND means no sourced value is available. Do not invent it.
+            """
+            return context._run(
+                "lookup_engineering_knowledge", {"topic": topic, "query": query}
+            )
+
+        return [update_design_brief, get_design_status, lookup_engineering_knowledge]
 
     @property
     def successful_paths(self) -> list[str]:
