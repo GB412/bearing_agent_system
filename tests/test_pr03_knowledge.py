@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
@@ -12,7 +13,7 @@ from bearing_agent_system import DesignBriefService, SQLiteDesignBriefStore
 from bearing_agent_system.agent_tools import TurnTools
 from bearing_agent_system.conversation import ConversationAgent
 from bearing_agent_system.conversation_store import ConversationStore
-from bearing_agent_system.knowledge import KnowledgeRepository
+from bearing_agent_system.knowledge import KnowledgeRepository, _validate_catalog
 
 
 class ScriptedChatModel(BaseChatModel):
@@ -162,3 +163,86 @@ def test_agent_knowledge_then_user_write_same_turn(tmp_path):
     ]
     assert service.get_brief("s")[0].dimensions.d_mm.value == 30
     assert "本轮实际已写入" in result.answer
+
+
+@pytest.mark.parametrize("topic,query,expected", [
+    ("clearance", "6206 CN/C3游隙具体数值是多少微米?", "INSUFFICIENT_EVIDENCE"),
+    ("clearance", "C3的数值范围是多少?", "INSUFFICIENT_EVIDENCE"),
+    ("fit", "6206配合k6/H7具体公差", "INSUFFICIENT_EVIDENCE"),
+    ("lubrication", "润滑脂的黏度具体是多少?", "INSUFFICIENT_EVIDENCE"),
+    ("bearing_model", "6206的额定动载荷多少?", "INSUFFICIENT_EVIDENCE"),
+    ("bearing_model", "6206-2RS外形尺寸是多少?", "INSUFFICIENT_EVIDENCE"),
+    ("bearing_model", "62060 外形尺寸", "NOT_FOUND"),
+    ("bearing_model", "16206 外形尺寸", "NOT_FOUND"),
+    ("clearance", "CN/C3游隙有何区别", "FOUND"),
+    ("fit", "轴承内外圈配合原则是什么", "FOUND"),
+])
+def test_lookup_does_not_confuse_related_sources_with_requested_facts(topic, query, expected):
+    result = KnowledgeRepository().lookup(topic, query)
+    assert result["status"] == expected
+    if expected == "INSUFFICIENT_EVIDENCE":
+        assert result["ok"]
+        assert result["results"] == []
+        assert result["related_sources"]
+        for related in result["related_sources"]:
+            assert related["source"]["url"].startswith("https://")
+            assert related["review_status"] == "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED"
+
+
+def test_tool_receipt_has_source_ids_and_lookup_does_not_modify_brief(tmp_path):
+    service = DesignBriefService(SQLiteDesignBriefStore(tmp_path / "brief.sqlite"))
+    runner = TurnTools(
+        service=service, session_id="s", message_id="user", user_message="想查6206尺寸"
+    )
+    before = service.get_brief("s")
+    lookup = runner.tools()[2]
+    result = lookup.invoke({"topic": "bearing_model", "query": "6206尺寸"})
+    assert result["status"] == "FOUND"
+    assert runner.trace[-1]["knowledge_status"] == "FOUND"
+    assert runner.trace[-1]["knowledge_ids"] == ["skf-6206-dimensions"]
+    assert runner.trace[-1]["knowledge_source_urls"][0].startswith("https://www.skf.com/")
+    assert service.get_brief("s") == before
+    result = lookup.invoke({"topic": "clearance", "query": "C3游隙数值范围"})
+    assert result["status"] == "INSUFFICIENT_EVIDENCE"
+    assert runner.trace[-1]["knowledge_status"] == "INSUFFICIENT_EVIDENCE"
+    assert runner.trace[-1]["knowledge_ids"] == ["ntn-clearance-classes"]
+    assert service.get_brief("s") == before
+
+
+def test_lookup_returns_copy_so_tools_cannot_mutate_catalog():
+    repo = KnowledgeRepository()
+    response = repo.lookup("bearing_model", "6206尺寸")
+    response["results"][0]["facts"][0]["value"] = 123456
+    response["results"][0]["source"]["url"] = "https://bad.invalid"
+    reread = repo.lookup("bearing_model", "6206尺寸")
+    assert reread["results"][0]["facts"][0]["value"] == 30
+    assert reread["results"][0]["source"]["url"].startswith("https://www.skf.com/")
+
+
+def test_bad_catalog_records_are_rejected_before_being_exposed():
+    base = {
+        "id": "k1", "topic": "bearing_model", "match_terms": ["6206"],
+        "summary": "basic dimensions", "facts": [
+            {"field": "dimensions.d_mm", "value": 30, "unit": "mm"}
+        ], "applicability": "SKF 6206 only", "limitations": ["not engineering approved"],
+        "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+        "source": {"publisher": "SKF", "title": "6206",
+                   "url": "https://www.skf.com/6206"},
+    }
+    assert _validate_catalog({"schema_version": "EngineeringKnowledge/v1",
+                              "records": [base]})
+    with pytest.raises(ValueError, match="unique"):
+        _validate_catalog({"schema_version": "EngineeringKnowledge/v1",
+                           "records": [base, base]})
+    with pytest.raises(ValueError, match="approval"):
+        _validate_catalog({"schema_version": "EngineeringKnowledge/v1",
+                           "records": [{**base, "review_status": "APPROVED"}]})
+    with pytest.raises(ValueError, match="HTTPS"):
+        _validate_catalog({"schema_version": "EngineeringKnowledge/v1",
+                           "records": [{**base, "source": {**base["source"],
+                                                         "url": "http://no-tls.invalid"}}]})
+    with pytest.raises(ValueError, match="finite"):
+        _validate_catalog({"schema_version": "EngineeringKnowledge/v1",
+                           "records": [{**base, "facts": [
+                               {"field": "dimensions.d_mm", "value": float("nan"),
+                                "unit": "mm"}]}]})
