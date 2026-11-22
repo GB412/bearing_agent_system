@@ -1,6 +1,6 @@
 # Bearing Agent System
 
-面向滚动轴承工程设计的需求引导系统。当前已经实现规划文档、RoBAS 工程输入审计，以及**深沟球轴承（DGB）的结构化 DesignBrief 状态底座（PR-01 待验收）**；PR-01 和 PR-02 已先后合并到 main；PR-03 正在独立分支实现工程知识查询。
+面向滚动轴承工程设计的需求引导系统。当前已经实现规划文档、RoBAS 工程输入审计，以及**深沟球轴承（DGB）的结构化 DesignBrief 状态底座**；PR-01 和 PR-02 已先后合并到 main；PR-03 正在独立分支实现工程知识查询。
 
 ## 当前设计
 
@@ -36,9 +36,9 @@ DGB V1 固定外形尺寸 d/D/B，获取实际轴承载荷、套圈转速及假�
 
 第一版不建设 RoBAS 43/324 字段的动态工程规则引擎；这些映射与专业校验留给后续适配层。当前不实现分布式事务、复杂异常恢复或跨客户端并发控制。
 
-## PR-01：参数模型与受信状态管理（待验收）
+## PR-01：参数模型与受信状态管理（已合并）
 
-PR-01 的代码位于 `feature/pr01-designbrief-state`。这是可执行的结构化输入底座，不是 DeepSeek / ReAct 对话程序。
+PR-01 的代码已合并到 `main`，历史开发分支为 `feature/pr01-designbrief-state`。这是可执行的结构化输入底座，不是 DeepSeek / ReAct 对话程序。
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -49,7 +49,7 @@ ruff check .
 
 示例展示从结构化参数批量更新到 SQLite 重新读取、缺项检查；测试不调用任何外部 API 或 RoBAS。相关范围、优化范围单位与用户证据校验、约束替换/撤销及已知限制见 [PR-01 实施说明](docs/pr01/IMPLEMENTATION_REPORT.md)。没有安装 Ruff 的本地环境应如实标记未运行，不将 pytest 通过等同于 Ruff 通过。
 
-## PR-02：真实 DeepSeek Conversation Agent（Draft，待实测）
+## PR-02：真实 DeepSeek Conversation Agent（已合并）
 
 PR-02 已通过验收并合并到 main。详见 [PR-02 实施与 DeepSeek 测试说明](docs/pr02/IMPLEMENTATION_REPORT.md)。
 
@@ -64,7 +64,7 @@ $env:DEEPSEEK_THINKING = "disabled"
 python -m bearing_agent_system.chat_cli --model deepseek-flash
 ```
 
-终端指令 `/status`、`/brief`、`/trace`、`/new`、`/exit`；可选真实测试 `python examples/pr02_live_eval.py --max-cases 5`。**离线 CI 通过不代表真实 DeepSeek 已通过**；无凭据时必须报告真实 API 验证仍待完成。此阶段只实现两个工具、单 Agent，不提供工程推荐或 RoBAS 计算。
+终端指令 `/status`、`/brief`、`/trace`、`/new`、`/exit`；可选真实测试 `python examples/pr02_live_eval.py --max-cases 5`。**离线 CI 通过不代表真实 DeepSeek 已通过**；无凭据时必须报告真实 API 验证仍待完成。PR-02 历史阶段只实现两个工具、单 Agent；PR-03 在此基础上增加第三个知识工具。
 
 ## PR-03：有来源的工程知识查询（开发中）
 
