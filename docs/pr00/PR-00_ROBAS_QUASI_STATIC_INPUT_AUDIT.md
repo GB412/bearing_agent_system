@@ -3,11 +3,11 @@
 - 日期：2026-11-20（Asia/Shanghai）；GitHub PR **#1**，项目阶段 **PR-00**，两者分别编号。
 - 分支：`docs/pr-00-robas-quasi-static-input-audit`；业务基线 `02861ea09e77906f4360ed1e3e9c7268a0c9ea1f`。审计工件已提交 2b286f1c671cc581fb0027544d9b61db6554624b；提交引用在 PROJECT_CHANGELOG 追加。
 - 结论：43 记录/324 字段的源码及资源盘点完成；工程输入协议冻结 **BLOCKED**，等待人工验收。没有 Agent/优化实现，没有修改原版 DATA/SQLite/EXE 或 Bearing_CAD 架构，没有开始 PR-01。
-- [逐字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)、[原始定位证据](evidence/audit.json)、[全表结构](DATABASE_SCHEMA_AUDIT.md)、[UI 观察](UI_OBSERVATIONS.md)、[验证结果](VALIDATION.md)。
+- [逐字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)、[全表结构](DATABASE_SCHEMA_AUDIT.md)、[UI 观察](UI_OBSERVATIONS.md)、[验证结果](VALIDATION.md)。
 
 ## 1. 方法和证据边界
 
-完整阅读本仓库 MASTER_PLAN、原 PR-00 和初始矩阵，核对干净分支及 SHA。原仓库没有 PROJECT_MANUAL/PROJECT_CHANGELOG，本次补建。Bearing_CAD 本机 main 为 `4460a784846d7df978579f49e8685a18da336e81`，审查时工作区干净。使用本地源码事实优先于旧迁移文档。
+历史审计先阅读了当时 MASTER_PLAN、PR-00 及初始矩阵，并核对工作区与 SHA。旧项目手册/临时记录现已从本项目清理。Bearing_CAD 本机 main 为 `4460a784846d7df978579f49e8685a18da336e81`，审查时工作区干净。使用本地源码事实优先于旧迁移文档。
 
 源码根 `D:/RotorStudio/RoBAS`；资源根 `D:/RotorStudio/ui_rotorstudio-9857bcc7afce658be15dfd2b559a55cb12b55bbd/NetLib/RoBAS_Resources`；Python 根 `D:/RotorStudio/Bearing_CAD/Bearing_CAD`。JSON inventory 保存全部 101 个实际 C# 文件、审查的 Python 文件、SQLite/CSV/EXE/DATA 路径、字节数及 SHA-256。未将商业二进制/数据库完整复制进 Git。
 
@@ -57,7 +57,7 @@ DGB.SetAnalysisValue 分析保持架新建 StraightPocketCage，而 CAD 对象 C
 
 未独立生成项：全部未覆盖 solver/控制标志、寿命/接触属性、剩余材料属性、润滑牵引/油膜、温度、力矩/错位、配合、热边界/扫描/初值/重力及未覆盖保持架模型字段等，逐项见矩阵。run_analysis拒绝显式 CAD cage（request.cage非空）；analysis_geometry强制inner_race_od_mm。不能仅扩展对话问题就宣称这些数据链已实现。
 
-后续接口建议仅为审计产物：显式字段级 source/confirmation/dependency 输入；缺项返回对象；与已锁定 profile 的允许继承清单；单位转换和构建分离；在 StateManager 中维护状态，保持既有 PR-01 安全契约（如有，后续实现前核验，本仓库当前无此业务实现）。本 PR 不改变任何架构。编排按项目要求 Python3.11+/Pydantic/LangGraph，不在 PR-00 另行重选框架。
+后续接口建议仅为审计产物：显式字段级 source/confirmation/dependency 输入；缺项返回对象；与已锁定 profile 的允许继承清单；单位转换和构建分离；在新项目的唯一受信写入模块维护确认状态与版本。不要照搬旧项目的 StateManager 或所谓旧 PR-01 契约；由新的 Conversation Agent 设计决定最小实现。
 
 ## 6. 未来对话必须问、可查询、可派生
 
@@ -78,7 +78,7 @@ DGB.SetAnalysisValue 分析保持架新建 StraightPocketCage，而 CAD 对象 C
 
 TEMPLATE_READY必须：43记录/324字段身份与顺序固定；非优化必需输入有限/单位/来源明确；用户可决定值全部confirmed；受信系统值有审核规则版本；profile有ID/SHA/逐字段允许继承清单及适用性确认；CSV/DB有哈希/记录键/列/单位/转换；派生值有公式及完整依赖；无冲突/BLOCKED。依赖五变量的派生项可在模板阶段标明待优化依赖，但不能声称已得到数值；RUNNABLE_READY还要求五变量及全部依赖已填并重算、取整/枚举/数组/模型条件校验通过。
 
-所有324个协议位置必须在RUNNABLE阶段有可溯源值，即使某模式忽略该字段也须有经审核的固定编码；在缺求解核文档时不自行省略。未来负面检查至少包括：空/NaN/Inf、单位不明、坐标不明、未确认零值、未知/重名材料、缺物性、profile哈希变化、模型码与物性/温度不符、nRe索引不符、几何/配合冲突、旧依赖未失效、曲率/垫片自动属性断链。缺项报告须列 field ID、原因、缺失来源、所需行动；任一阻断状态为INCOMPLETE。序列化或预校核通过不代表收敛、DLAP性能验证或工程验收。
+所有324个协议位置必须在RUNNABLE阶段有可溯源值，即使某模式忽略该字段也须有经审核的固定编码；在缺求解核文档时不自行省略。未来负面检查至少包括：空/NaN/Inf、单位不明、坐标不明、未确认零值、未知/重名材料、缺物性、profile哈希变化、模型码与物性/温度不符、nRe索引不符、几何/配合冲突、旧依赖未失效、曲率/垫片自动属性断链。缺项报告须列 field ID、原因、缺失来源、所需行动；任一阻断状态为INCOMPLETE。序列化或预校核通过不代表收敛、外部求解性能验证或工程验收。
 
 ## 8. 自审问题清单与准入
 
@@ -95,4 +95,4 @@ TEMPLATE_READY必须：43记录/324字段身份与顺序固定；非优化必需
 |B09|当前Python API逐字段确认/来源不完备|NOT_IMPLEMENTED；后续PR范围待本次人工验收|
 |B10|API pytest缺cadquery；当前环境为Python3.14|BLOCKED：完整CAD测试环境；不安装/重构本次范围外依赖|
 
-验收自审：43/324完整性、每字段源码/初始化/属性/案例定位、数据库实际结构与来源、Python覆盖范围、确认gate已记录。单位/分支/五变量有效写入链/真实目标案例仍有上述阻断，故不勾选“工程协议冻结/原版UI同次生成闭环已通过”。审计工具测试与已有测试实际结果见VALIDATION。PR-00完成度为UNIT_TESTED（审计工件一致性）；完整工程输入链NOT_IMPLEMENTED；REAL_ENV_VERIFIED仅限本机UI只读观察与数据只读检查，不扩展至求解；ENGINEERING_REVIEWED未达到。不得合并，不开始PR-01，等待人工验收和阻断项处理决定。
+验收自审：43/324完整性、每字段源码/初始化/属性/案例定位、数据库实际结构与来源、Python覆盖范围、确认gate已记录。单位/分支/五变量有效写入链/真实目标案例仍有上述阻断，故不勾选“工程协议冻结/原版UI同次生成闭环已通过”。历史审计工件测试与已有测试的当时结果见 VALIDATION；原始证据生成工具已从本仓库清理，测试不能就地重跑。PR-00完成度为UNIT_TESTED（审计工件一致性）；完整工程输入链NOT_IMPLEMENTED；REAL_ENV_VERIFIED仅限本机UI只读观察与数据只读检查，不扩展至求解；ENGINEERING_REVIEWED未达到。不得合并，不开始PR-01，等待人工验收和阻断项处理决定。
