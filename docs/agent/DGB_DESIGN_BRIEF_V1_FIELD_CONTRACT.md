@@ -121,6 +121,8 @@
 
 `brief_user_accepted` 表示用户**对已展示的指定版本/摘要**进行整体接受，由工具① `accept_brief` 记录；并不自动推导自 `brief_complete`。若 revision 改变，原接受不适用于新版。
 
+**整份确认不改变 Brief 内容 revision**：`accept_brief` 只保存独立的版本绑定接受记录，不能因为确认动作自身使刚接受的 revision 失效。用户之后实际修改任一受信参数才使原整份接受不再适用于新 revision。
+
 草案可以随时导出且标 `INCOMPLETE`，完成版需要 `brief_complete=true`；若业务流程要求“确认完成版”，还需本版本 `brief_user_accepted=true`。工具⑤不生成 RoBAS DATA、不推断 `TEMPLATE_READY`，而返回 `robas_template_ready=NOT_ASSESSED`。
 
 **本合同当前还存在的工程前置条件**：游隙/配合选择的具体可用组合、材料和润滑审核数据源尚未建立；它们是 PR-03/04 的内容，不允许 PR-01 靠硬编码不可信默认值补全。RoBAS 的温度/坐标/模型适用细节以 PR-00 后续审核为准。
