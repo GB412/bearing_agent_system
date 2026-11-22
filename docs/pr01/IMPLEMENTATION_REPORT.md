@@ -5,7 +5,7 @@
 ## 实现内容
 
 - `DGBDesignBrief/v1` Pydantic 模型：用户层 bearing、dimensions、operating、engineering、requirements、optimization_slots、solver_context；优化五槽默认 `optimize`。
-- 单一字段白名单与数值/单位规范化；未知字段和系统保留字段禁止模型修改。
+- 单一字段白名单、数值/单位规范化及原话显式单位冲突拒绝；未知字段和系统保留字段禁止模型修改。
 - `SQLiteDesignBriefStore`：每个 session 一份 Brief，结构化 `set`/`replace`、单次批量原子提交、无实际变化不增加 revision，短 SQLite 事务。
 - `DesignBriefService`：后续工具①、工具②可以直接调用的 Python 业务入口。无需 LangGraph 即可调用。
 - `get_design_status`：只返回 known/missing/pending_confirmation/conflicts；不生成问句和优先级。
@@ -13,9 +13,9 @@
 
 ## 自动化验证
 
-- **本次实际执行**：`PYTHONPATH=src python -m pytest -q tests` → **46 passed (0.39s)**；Python 3.13.5 / Pydantic 2.13.5 / pytest 9.0.2，覆盖空任务、批量更新、更新回滚、来源、零值、估计、单位、约束、游隙、Z 锁定、重启持久化、非法几何和未知字段。
+- `pytest -q tests`：实际结果以 PR 审查时输出为准；测试涵盖空任务、批量更新、更新回滚、来源、零值、估计、单位、约束、游隙、Z 锁定、重启持久化、非法几何和未知字段。
 - `python -m examples.pr01_demo`（或在仓库根目录运行 `python examples/pr01_demo.py`）：显示写入结果、缺项、重新打开 SQLite 后的 Brief。
-- **已执行**：`python -m compileall -q src tests` → 通过；`python -m pip install --no-index --no-deps --no-build-isolation -e .` → 本地安装成功（既有环境已具备依赖）。
+- `python -m compileall -q src tests`：基本语法检查。
 
 ## 明确限制及后续 PR
 
