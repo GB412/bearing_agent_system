@@ -74,7 +74,48 @@
           "required": [
             "matched_row",
             "exact_catalog_match"
-          ]
+          ],
+          "properties": {
+            "source_path": {
+              "type": "string"
+            },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "table": {
+              "const": "model"
+            },
+            "matched_row": {
+              "type": "object",
+              "required": [
+                "model",
+                "d_mm",
+                "D_mm",
+                "B_mm"
+              ],
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "d_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "D_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "B_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            },
+            "exact_catalog_match": {
+              "const": true
+            }
+          }
         },
         "materials": {
           "type": "object",
@@ -129,7 +170,12 @@
           "type": "boolean"
         },
         "status": {
-          "type": "string"
+          "enum": [
+            "CATALOG_VERIFIED_ENGINEERING_PENDING",
+            "ENGINEERING_REVIEWED",
+            "SOLVER_VERIFIED",
+            "INCOMPLETE"
+          ]
         }
       }
     },
@@ -143,8 +189,10 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "string"
-      }
+        "type": "string",
+        "pattern": "^DIALOGUE-DGB-[0-9]{4,}-[A-Z]$"
+      },
+      "uniqueItems": true
     }
   },
   "$defs": {
@@ -158,7 +206,15 @@
         "source"
       ],
       "properties": {
-        "value": {},
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "integer",
+            "object",
+            "null"
+          ]
+        },
         "unit": {
           "type": [
             "string",
@@ -180,7 +236,29 @@
           "type": "object",
           "required": [
             "kind"
-          ]
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "user",
+                "not_provided",
+                "catalog",
+                "reviewed_rule",
+                "derived"
+              ]
+            },
+            "message_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "simulation": {
+              "type": "boolean"
+            },
+            "ref": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
         },
         "note": {
           "type": [
@@ -198,12 +276,90 @@
             "source_sha256"
           ],
           "properties": {
+            "resource": {
+              "const": "RoBAS"
+            },
+            "file": {
+              "type": "string"
+            },
+            "key_column": {
+              "type": "string"
+            },
+            "key_value": {
+              "type": "string",
+              "minLength": 1
+            },
             "verified": {
-              "const": true
+              "type": "boolean"
+            },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          },
+          "then": {
+            "properties": {
+              "confirmed": {
+                "const": false
+              },
+              "precision": {
+                "const": "unknown"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "confirmed": {
+                "const": true
+              }
+            },
+            "required": [
+              "confirmed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "precision": {
+                "not": {
+                  "const": "unknown"
+                }
+              },
+              "source": {
+                "properties": {
+                  "kind": {
+                    "not": {
+                      "const": "not_provided"
+                    }
+                  }
+                }
+              }
             }
           }
         }
-      }
+      ]
     },
     "brief": {
       "type": "object",
@@ -234,10 +390,44 @@
               "const": "DGB"
             },
             "application": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": "null"
+                    }
+                  }
+                }
+              ]
             },
             "model": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": "null"
+                    }
+                  }
+                }
+              ]
             }
           }
         },
@@ -250,13 +440,67 @@
           ],
           "properties": {
             "d_mm": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0.001
+                    },
+                    "unit": {
+                      "const": "mm"
+                    }
+                  }
+                }
+              ]
             },
             "D_mm": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0.001
+                    },
+                    "unit": {
+                      "const": "mm"
+                    }
+                  }
+                }
+              ]
             },
             "B_mm": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0.001
+                    },
+                    "unit": {
+                      "const": "mm"
+                    }
+                  }
+                }
+              ]
             }
           }
         },
@@ -271,19 +515,170 @@
           ],
           "properties": {
             "inner_speed_rpm": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    },
+                    "unit": {
+                      "const": "rpm"
+                    }
+                  }
+                }
+              ]
             },
             "outer_speed_rpm": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    },
+                    "unit": {
+                      "const": "rpm"
+                    }
+                  }
+                }
+              ]
             },
             "radial_load_n": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    },
+                    "unit": {
+                      "const": "N"
+                    }
+                  }
+                }
+              ]
             },
             "axial_load_n": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    },
+                    "unit": {
+                      "const": "N"
+                    }
+                  }
+                }
+              ]
             },
             "temperature_c": {
-              "$ref": "#/$defs/parameter"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": -273.15,
+                      "maximum": 500
+                    },
+                    "unit": {
+                      "const": "degC"
+                    }
+                  }
+                }
+              ]
+            },
+            "axial_load_direction": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": "null"
+                    }
+                  }
+                }
+              ]
+            },
+            "rotation_direction": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": "null"
+                    }
+                  }
+                }
+              ]
+            },
+            "mounting_orientation": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/parameter"
+                },
+                {
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": "null"
+                    }
+                  }
+                }
+              ]
             }
           }
         },
@@ -306,13 +701,64 @@
               ],
               "properties": {
                 "inner_ring_id": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "outer_ring_id": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "ball_id": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             },
@@ -324,10 +770,44 @@
               ],
               "properties": {
                 "type": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "material_id": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             },
@@ -339,10 +819,50 @@
               ],
               "properties": {
                 "mode": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "oil",
+                            "grease",
+                            "other",
+                            null
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "lubricant_id": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             },
@@ -354,10 +874,66 @@
               ],
               "properties": {
                 "group": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "initial_radial_clearance_mm": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "oneOf": [
+                            {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "min",
+                                "max"
+                              ],
+                              "properties": {
+                                "min": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "max": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "unit": {
+                          "const": "mm"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             },
@@ -369,10 +945,44 @@
               ],
               "properties": {
                 "inner_ring": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "outer_ring": {
-                  "$ref": "#/$defs/parameter"
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/parameter"
+                    },
+                    {
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "unit": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -422,9 +1032,88 @@
                     "bounded"
                   ]
                 },
-                "value": {},
-                "bounds": {}
-              }
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0
+                },
+                "bounds": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "min",
+                        "max"
+                      ],
+                      "properties": {
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "optimize"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "locked"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "bounded"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "bounds": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "Z": {
               "type": "object",
@@ -441,9 +1130,88 @@
                     "bounded"
                   ]
                 },
-                "value": {},
-                "bounds": {}
-              }
+                "value": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "bounds": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "min",
+                        "max"
+                      ],
+                      "properties": {
+                        "min": {
+                          "type": "integer"
+                        },
+                        "max": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "optimize"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "locked"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "bounded"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "bounds": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "Dpw_mm": {
               "type": "object",
@@ -460,9 +1228,88 @@
                     "bounded"
                   ]
                 },
-                "value": {},
-                "bounds": {}
-              }
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0
+                },
+                "bounds": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "min",
+                        "max"
+                      ],
+                      "properties": {
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "optimize"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "locked"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "bounded"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "bounds": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "fi": {
               "type": "object",
@@ -479,9 +1326,88 @@
                     "bounded"
                   ]
                 },
-                "value": {},
-                "bounds": {}
-              }
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0
+                },
+                "bounds": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "min",
+                        "max"
+                      ],
+                      "properties": {
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "optimize"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "locked"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "bounded"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "bounds": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "fo": {
               "type": "object",
@@ -498,9 +1424,88 @@
                     "bounded"
                   ]
                 },
-                "value": {},
-                "bounds": {}
-              }
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0
+                },
+                "bounds": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "min",
+                        "max"
+                      ],
+                      "properties": {
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "optimize"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "locked"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "mode": {
+                        "const": "bounded"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "bounds": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              ]
             }
           }
         },
@@ -537,7 +1542,11 @@
               "type": "boolean"
             },
             "robas_template_ready": {
-              "type": "string"
+              "enum": [
+                "NOT_ASSESSED",
+                "INCOMPLETE",
+                "TEMPLATE_READY"
+              ]
             }
           }
         }
@@ -556,10 +1565,12 @@
       ],
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "source_path": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "source_sha256": {
           "type": "string",
@@ -569,14 +1580,159 @@
           "type": "integer",
           "minimum": 2
         },
+        "source_key_column": {
+          "type": "string",
+          "minLength": 1
+        },
         "raw_row": {
-          "type": "object"
+          "type": "object",
+          "minProperties": 2,
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "parsed_properties": {
-          "type": "object"
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "value",
+              "unit"
+            ],
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         },
         "exact_catalog_match": {
           "const": true
+        },
+        "engineering_suitability_reviewed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "dialogue": {
+      "type": "object",
+      "required": [
+        "dialogue_schema_version",
+        "dialogue_id",
+        "case_id",
+        "difficulty",
+        "initial_user_request",
+        "simulated_user_profile",
+        "reference_turns",
+        "expected_final_brief_case_id",
+        "expected_behavior"
+      ],
+      "properties": {
+        "dialogue_schema_version": {
+          "const": "DGBDialogueCase/v1"
+        },
+        "dialogue_id": {
+          "type": "string",
+          "pattern": "^DIALOGUE-DGB-[0-9]{4,}-[A-Z]$"
+        },
+        "case_id": {
+          "type": "string",
+          "pattern": "^DGB-[0-9]{4,}$"
+        },
+        "difficulty": {
+          "enum": [
+            "medium",
+            "beginner",
+            "hard",
+            "easy"
+          ]
+        },
+        "initial_user_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "simulated_user_profile": {
+          "type": "object",
+          "required": [
+            "role",
+            "case_id",
+            "known_facts",
+            "response_policy"
+          ],
+          "properties": {
+            "role": {
+              "const": "synthetic_user_simulator"
+            },
+            "case_id": {
+              "type": "string"
+            },
+            "known_facts": {
+              "type": "object"
+            },
+            "response_policy": {
+              "type": "string"
+            }
+          }
+        },
+        "reference_turns": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "required": [
+              "message_id",
+              "role",
+              "text"
+            ],
+            "properties": {
+              "message_id": {
+                "type": "string",
+                "pattern": "^[au][0-9]{2,}$"
+              },
+              "role": {
+                "enum": [
+                  "user",
+                  "assistant_reference"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "expected_delta": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "expected_action": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "expected_final_brief_case_id": {
+          "type": "string"
+        },
+        "expected_behavior": {
+          "type": "object"
+        },
+        "dataset_split": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "type": "string"
         }
       }
     }
