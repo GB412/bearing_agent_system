@@ -68,4 +68,13 @@ python -m bearing_agent_system.chat_cli --model deepseek-flash
 
 ## PR-03：有来源的工程知识查询（开发中）
 
-第三个 Agent 工具 `lookup_engineering_knowledge` 只读本地少量制造商资料，返回出处、适用条件和审核状态；未找到资料不编造数值。当前仅整理6206主要外形尺寸、CN/C3概念、配合与脂润滑基础说明；具体材料物性、游隙数值、公差表仍不可用，不提供专业推荐或RoBAS计算。详见 [PR-03 实施说明](docs/pr03/IMPLEMENTATION.md)。
+第三个 Agent 工具 `lookup_engineering_knowledge` 只读本地少量制造商资料，返回出处、适用条件和审核状态。查询结果区分 `FOUND`、`NOT_FOUND` 和 `INSUFFICIENT_EVIDENCE`（资料相关，但无法支持所问的具体数值或变体）。当前仅整理 6206 主要外形尺寸、CN/C3 概念、配合与脂润滑基础说明；具体材料物性、游隙数值、公差表仍不可用，不提供专业推荐或 RoBAS 计算。
+
+```powershell
+python -m pytest -q tests -m "not live"
+ruff check .
+# 下列命令需要本地环境中配置 DEEPSEEK_API_KEY，是真实付费 API 测试：
+python examples/pr03_live_eval.py --model deepseek-flash --max-cases 4
+```
+
+真实测试核验模型是否实际调用知识工具、是否按厂家网页引用来源、是否在数值依据不足时停止编造，以及知识查询是否保持 DesignBrief 只读。脚本保存脱敏报告到被 Git 忽略的 `artifacts/pr03_live/`；未运行真实 API 时不可宣称 DeepSeek 验收通过。详见 [PR-03 实施说明](docs/pr03/IMPLEMENTATION.md)。
