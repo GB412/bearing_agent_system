@@ -21,7 +21,7 @@ WRITE_CLAIM = re.compile(
 PAST_CONTEXT = ("此前", "以前", "之前", "上轮", "上次", "历史")
 STATUS_MARKER = "[[DESIGN_STATUS]]"
 # Only explicit model claims of confirmed status; not a user-intent classifier.
-CONFIRMED_LINE = re.compile(r"^\\s*(?:\\*\\*)?已确认(?:\\*\\*)?(?:[：:]|.{0,12}(?:参数|工作温度))")
+CONFIRMED_LINE = re.compile(r"^\s*(?:\*\*)?已确认(?:\*\*)?(?:[：:]|.{0,12}(?:参数|工作温度))")
 UNSUPPORTED_CLAIMS = re.compile(
     r"(?:已完成全部设计|需求已正式确认|RoBAS.{0,10}(?:可运行|已就绪)"
     r"|已经完成校核|CAD已生成)", re.I
