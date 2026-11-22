@@ -82,3 +82,15 @@ def test_6206_product_number_does_not_satisfy_missing_62_mm_measurement():
     )]
     errors = grade_knowledge_case(case, turns, final_revision=0)
     assert any("62" in error for error in errors)
+
+
+def test_live_grader_detects_micron_value_before_chinese_suffix():
+    case = CASES[2]
+    turns = [_turn(
+        answer="按经验该型号CN游隙是25µm的范围。",
+        status="INSUFFICIENT_EVIDENCE",
+        ids=["ntn-clearance-classes"],
+        sources=["https://ntnamericas.com/technical-resources/faqs/"],
+    )]
+    errors = grade_knowledge_case(case, turns, final_revision=0)
+    assert any("numerical engineering" in error for error in errors)
