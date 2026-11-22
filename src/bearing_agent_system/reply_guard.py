@@ -121,6 +121,11 @@ def _followup_questions(answer: str) -> str:
         # A saved-value sentence and the next question may share one line.
         for clause in re.split(r"(?<=[。；;])", line):
             item = clause.strip()
+            # "已记录尺寸，下一步请提供转速。" contains both a claim
+            # and a useful prompt. Preserve only the prompt suffix.
+            if WRITE_CLAIM.search(item):
+                next_step = re.search(r"下一步|接下来", item)
+                item = item[next_step.start():] if next_step else ""
             if not item or WRITE_CLAIM.search(item) or "已确认" in item:
                 continue
             if not (("？" in item or "?" in item)
