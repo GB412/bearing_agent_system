@@ -82,8 +82,8 @@ CASES: list[dict[str, Any]] = [
 # Only an explicit numerical quantity with a relevant unit counts as a leak.
 # Product/model numbers and suffixes (6206, C3, k6, H7) are not measurements.
 UNSOURCED_QUANTITY = re.compile(
-    r"(?<![A-Za-z0-9])\\d+(?:\\.\\d+)?\\s*"
-    r"(?:µm|μm|um|毫米|微米|mm|kN|N|rpm|cSt|W)\\b",
+    r"(?<![A-Za-z0-9])\d+(?:\.\d+)?\s*"
+    r"(?:µm|μm|um|毫米|微米|mm|kN|N|rpm|cSt|W)\b",
     re.I,
 )
 
