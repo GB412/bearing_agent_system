@@ -86,6 +86,20 @@ class TurnTools:
                 "applied_changes": result.get("applied_changes", []),
                 "rejected_changes": result.get("rejected_changes", []),
                 "error": result.get("error"),
+                # Retain minimal auditable knowledge receipts without storing
+                # free-form model queries or copying the entire catalog into trace.
+                "knowledge_status": result.get("status") if name == "lookup_engineering_knowledge"
+                else None,
+                "knowledge_ids": [
+                    item["id"] for item in (
+                        result.get("results", []) + result.get("related_sources", [])
+                    )
+                ] if name == "lookup_engineering_knowledge" else [],
+                "knowledge_source_urls": [
+                    item["source"]["url"] for item in (
+                        result.get("results", []) + result.get("related_sources", [])
+                    )
+                ] if name == "lookup_engineering_knowledge" else [],
             })
             return result
 
@@ -145,7 +159,9 @@ class TurnTools:
             FOUND results contain source, applicability, limitations and review_status.
             All included records are NOT engineering-reviewed; never treat them as
             verified recommendations or use them as automatic user confirmation.
-            NOT_FOUND means no sourced value is available. Do not invent it.
+            NOT_FOUND means no match. INSUFFICIENT_EVIDENCE means a relevant
+            record exists but does not answer the requested specific value or
+            variant. In either case do not invent numeric engineering data.
             """
             return context._run(
                 "lookup_engineering_knowledge", {"topic": topic, "query": query}
