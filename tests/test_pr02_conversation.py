@@ -283,6 +283,13 @@ def test_live_grader_checks_exact_values_and_approximate_status():
 
 def test_read_only_progress_question_can_report_past_saved_values(environment):
     service, history = environment
+    prior = TurnTools(
+        service=service, session_id="s", message_id="earlier",
+        user_message="内径25mm",
+    ).tools()[0].invoke({"operation": "set", "changes": [
+        param("dimensions.d_mm", 25, "内径25mm", "mm")
+    ]})
+    assert prior["ok"]
     model = ScriptedChatModel(replies=[AIMessage(
         content="此前已经保存了内径25mm，目前还缺转速。"
     )])
