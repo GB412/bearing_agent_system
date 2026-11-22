@@ -15,6 +15,7 @@ from bearing_agent_system.conversation import ConversationAgent
 from bearing_agent_system.conversation_store import ConversationStore
 from bearing_agent_system.llm_client import make_deepseek_model
 from bearing_agent_system.models import DesignBrief, ParameterValue, Source
+from bearing_agent_system.reply_guard import reconcile_writes, trusted_summary
 from examples.pr02_live_eval import grade
 
 
@@ -178,7 +179,7 @@ def test_tool_rejection_overrides_false_success_claim(environment):
     ])
     agent = ConversationAgent(service, history, model)
     result = agent.respond("design-1", "外径不超过52mm", turn_id="bad-bound")
-    assert "未通过" in result.answer
+    assert "本轮仍未保存" in result.answer
     assert service.get_brief("design-1")[0].dimensions.D_mm is None
 
 
@@ -299,8 +300,7 @@ def test_read_only_progress_question_can_report_past_saved_values(environment):
     )])
     agent = ConversationAgent(service, history, model)
     result = agent.respond("s", "目前已经保存哪些参数？", turn_id="progress")
-    assert "内径 d=25.0mm" in result.answer
-    assert "当前 DesignBrief 草案" in result.answer
+    assert "此前已经保存了内径25mm" in result.answer
     assert result.tool_trace == []
 
 
@@ -357,7 +357,7 @@ def test_repair_failed_write_never_confirms_parameter(environment):
     )
     assert model.calls == 3
     assert result.tool_trace[0]["ok"] is False
-    assert "未通过校验" in result.answer
+    assert "本轮仍未保存" in result.answer
     assert service.get_brief("s")[0].engineering.lubrication.mode is None
 
 
@@ -374,7 +374,7 @@ def test_first_tool_failure_does_not_trigger_unbounded_repair(environment):
     )
     assert model.calls == 2
     assert len(result.tool_trace) == 1
-    assert "未通过校验" in result.answer
+    assert "本轮仍未保存" in result.answer
 
 
 def test_partial_write_receipt_overrides_unsaved_claims(environment):
@@ -395,24 +395,17 @@ def test_partial_write_receipt_overrides_unsaved_claims(environment):
     assert service.get_brief("s")[0].engineering.materials.ball_id is None
 
 
-def test_summary_cannot_promote_unwritten_chat_history_to_confirmed(environment):
+def test_trusted_state_view_ignores_unwritten_chat_history(environment):
     service, history = environment
     history.begin_turn("s", "old", "内外圈和钢球GCr15")
     history.finish_turn("s", "old", "已记录内外圈、钢球GCr15", [])
     history.begin_turn("s", "old2", "润滑方式脂润滑")
     history.finish_turn("s", "old2", "已记录脂润滑", [])
-    model = ScriptedChatModel(replies=[
-        AIMessage(content="**已确认**：内外圈和钢球GCr15，脂润滑。")
-    ])
-    result = ConversationAgent(service, history, model).respond(
-        "s", "目前已经确定了什么？", turn_id="summary"
-    )
-    assert result.error_type is None
-    assert model.calls == 1
-    assert "GCr15" not in result.answer
-    assert "脂润滑" not in result.answer
-    assert "内圈材料" in result.answer
-    assert "未提供" in result.answer
+    view = trusted_summary(service.get_design_status("s").model_dump(mode="json"))
+    assert "GCr15" not in view
+    assert "脂润滑" not in view
+    assert "内圈材料" in view
+    assert "未提供" in view
 
 
 def test_repair_does_not_start_for_explanation_question(environment):
@@ -442,15 +435,17 @@ def test_summary_separates_approximate_value_from_confirmed(environment):
     service.update_design_brief("s", change, TrustedContext(
         message_id="temp", user_message="约40℃"
     ))
+    view = trusted_summary(service.get_design_status("s").model_dump(mode="json"))
+    assert "近似/待确认" in view
+    assert "工作温度=40.0℃" in view
     model = ScriptedChatModel(replies=[
-        AIMessage(content="已确认工作温度40℃。")
+        AIMessage(content="温度只有近似值，尚未确认，具体值可在 /status 查看。")
     ])
     result = ConversationAgent(service, history, model).respond(
         "s", "目前确定了什么？", turn_id="temp-summary"
     )
     assert result.error_type is None
-    assert "近似/待确认" in result.answer
-    assert "工作温度=40.0℃" in result.answer
+    assert "尚未确认" in result.answer
 
 
 def test_current_preference_is_not_mistaken_for_status_question(environment):
@@ -470,3 +465,147 @@ def test_current_preference_is_not_mistaken_for_status_question(environment):
     assert result.tool_trace[0]["ok"]
     assert "润滑方式=脂润滑" in result.answer
     assert service.get_brief("s")[0].engineering.lubrication.mode.value == "grease"
+
+
+
+def test_cage_analysis_not_overwritten_by_summary_guard(environment):
+    service, history = environment
+    user_text = (
+        "保持架类型我不太清楚。你能根据目前工况分析冲压钢和尼龙保持架吗？"
+        "请不要把建议当作我已经确认的参数。"
+    )
+    analysis = (
+        "可以先比较：冲压钢保持架成本和制造成熟度通常更有优势；"
+        "聚合物保持架要核对材料、工作温度和润滑条件。"
+        "目前没有足够依据确定具体选型，建议先确定润滑方式。"
+    )
+    model = ScriptedChatModel(replies=[AIMessage(content=analysis)])
+    result = ConversationAgent(service, history, model).respond(
+        "s", user_text, turn_id="cage-analysis"
+    )
+    assert result.error_type is None
+    assert result.answer == analysis
+    assert model.calls == 1
+    assert result.tool_trace == []
+    assert result.revision == 0
+    assert service.get_brief("s")[0].engineering.cage.type is None
+
+
+def test_oil_invalid_enum_then_success_is_not_reported_as_failure(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "油润滑", "油润滑")
+        ]}, "wrong-enum"),
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "oil", "油润滑")
+        ]}, "right-enum"),
+        AIMessage(content="润滑剂牌号还没有确定，下一步可以考虑油的种类。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "油润滑", turn_id="oil"
+    )
+    assert result.error_type is None
+    assert result.revision == 1
+    assert len(result.tool_trace) == 2
+    assert not result.tool_trace[0]["ok"]
+    assert result.tool_trace[1]["ok"]
+    assert result.tool_trace[0]["attempted_paths"] == ["engineering.lubrication.mode"]
+    assert "本轮实际已写入：润滑方式=油润滑" in result.answer
+    assert "本轮仍未保存" not in result.answer
+    assert "润滑剂牌号还没有确定" in result.answer
+    assert model.calls == 3
+    assert service.get_brief("s")[0].engineering.lubrication.mode.value == "oil"
+
+
+def test_partial_batch_failed_then_partial_correction_reports_remaining(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "油润滑", "油润滑"),
+            param("engineering.materials.ball_id", "GCr15", "钢球采用GCr15")
+        ]}, "bad-batch"),
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "oil", "油润滑")
+        ]}, "oil-only"),
+        AIMessage(content="关于钢球材料仍需要澄清，但润滑油类型可以后续确定。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "油润滑；钢球采用GCr15", turn_id="partial-repair"
+    )
+    assert result.revision == 1
+    assert "本轮实际已写入：润滑方式=油润滑" in result.answer
+    assert "本轮仍未保存：钢球材料" in result.answer
+    assert "关于钢球材料仍需要澄清" in result.answer
+    assert service.get_brief("s")[0].engineering.materials.ball_id is None
+    assert reconcile_writes(result.tool_trace).unresolved[0][0] == (
+        "engineering.materials.ball_id"
+    )
+
+
+def test_success_then_later_rejection_is_not_hidden(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "oil", "油润滑")
+        ]}, "initial"),
+        action("update_design_brief", {"operation": "replace", "changes": [
+            param("engineering.lubrication.mode", "invalid", "油润滑")
+        ]}, "bad-replacement"),
+        AIMessage(content="油润滑已经讨论过，请继续说明润滑剂需求。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "油润滑", turn_id="after-success"
+    )
+    assert result.revision == 1
+    assert "本轮实际已写入：润滑方式=油润滑" in result.answer
+    assert "本轮仍未保存：润滑方式" in result.answer
+    assert service.get_brief("s")[0].engineering.lubrication.mode.value == "oil"
+
+
+def test_analysis_after_write_preserved_without_unverified_claims(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("update_design_brief", {"operation": "set", "changes": [
+            param("engineering.lubrication.mode", "grease", "脂润滑")
+        ]}, "grease"),
+        AIMessage(content=(
+            "已记录脂润滑，工况分析可以先关注润滑脂稠度和供脂条件。"
+            "后面仍要考虑温度和密封设计。"
+        )),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "脂润滑", turn_id="analysis-and-write"
+    )
+    assert "本轮实际已写入：润滑方式=脂润滑" in result.answer
+    assert "工况分析可以先关注润滑脂稠度" in result.answer
+    assert "后面仍要考虑温度和密封设计" in result.answer
+
+
+def test_read_only_status_does_not_trigger_write_repair(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        action("get_design_status", {}, "read"),
+        AIMessage(content="以前已经保存的字段可通过 /status 查看。"),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "帮我看看目前草案的状态", turn_id="read-only"
+    )
+    assert model.calls == 2
+    assert len(result.tool_trace) == 1
+    assert result.tool_trace[0]["name"] == "get_design_status"
+    assert "以前已经保存" in result.answer
+
+
+def test_plain_question_with_summary_words_stays_natural(environment):
+    service, history = environment
+    question = "目前我想知道保持架的材料选择，是否已经确认很重要？"
+    model = ScriptedChatModel(replies=[
+        AIMessage(content="保持架材料的选择应考虑温度、润滑和机械条件，先不确定也可以。")
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", question, turn_id="preserve-explanation"
+    )
+    assert model.calls == 1
+    assert "温度、润滑和机械条件" in result.answer
+    assert "当前 DesignBrief 草案" not in result.answer
