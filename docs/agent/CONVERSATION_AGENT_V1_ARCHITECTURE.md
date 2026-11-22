@@ -283,30 +283,30 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
 
 ## 6. DesignBrief 与状态管理
 
-建议七个用户层分组：
-`bearing`、`dimensions`、`operating`、`engineering`、`requirements`、`optimization_slots`、`solver_context`。最后一组只放模式和审核身份/未来映射信息，不让未验证 profile 混入用户确认值。
+**仅一套用户层事实来源**：`DesignBrief` 按 [DGBDesignBrief/v1 字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) 保存 `bearing`、`dimensions`、`operating`、`engineering`、`requirements`、`optimization_slots` 和只读内部 `solver_context`。不要用对话历史或模型上下文代替受信参数存储。
 
-`ParameterValue` 最小结构：
+典型 `ParameterValue`：
+
 ```json
 {
-  "value": 18000,
-  "unit": "rpm",
-  "confirmed": true,
-  "source": {"kind":"user","message_id":"turn-004"},
-  "precision": "exact",
-  "note": null
+  "value":18000,
+  "unit":"rpm",
+  "confirmed":true,
+  "precision":"exact",
+  "source":{"kind":"user","message_id":"turn-004"},
+  "note":null
 }
 ```
 
-- 业务确认只有 `confirmed`/`unconfirmed`；缺失 `value=null`；`precision` 可为 `exact/approximate/range/unknown`。模型不得写 `confirmed`。
-- “无轴向载荷”可确认 Fa=0；未提 Fa 仍为 null。“约 15000 rpm”保留近似性，不直接当最终固定工况；尺寸上限与确定尺寸不同。
-- 来源必须来自真实用户消息、受信资源/公式，不由 LLM 随意填写。
-- 修改 d/D/B、转速、载荷、温度等后，失效相关派生结果和曾经推荐包的适用性；已确认的用户原始选择**不擅自覆盖**，而是报告原依据待核查。
-- `PendingProposals` 独立于 DesignBrief 的 confirmed 值；只存提案 ID、内容、数据源、依赖 revision、展示证据、适用条件、过期信息。
-- `ConversationHistory` 记录用户消息、模型输出、工具调用事实；**不是第二个可信参数真相来源**。
-- `expected_revision` 和 `request_id` 防止并发覆盖、重复确认、工具调用重放。新用户修改导致完整 Brief 的先前接受版本失效，必须针对新 revision 重新接受。
+- `confirmed` 是**用户是否明确指定/接受**，不是物性已被专家验证；其他系统派生值用独立的来源/证据级别，不伪装成用户确认。
+- `value=null` 是未知，0 必须有明确来源；“约 15000”可存 `precision=approximate, confirmed=false`，不能通过用户层固定分析值检查。D 的上限使用独立几何边界约束，不能篡改 D 的确定值。
+- `PendingProposals` 保存方案、数据/规则来源、实际依赖字段和值的规范化摘要、创建版本、展示证据与失效理由；提案不是已确认参数。
+- `ConversationHistory` 保存用户原话、模型回复和简洁工具轨迹，不作为第二套业务事实；记录“用户不知道/暂不想回答”，供模型防止重复提问。
+- 推荐依赖失效是**字段级**：修改相关转速/温度/材料等使旧提案适用性待复核；只改备注不应造成无必要失效；不主动更换用户以前选择的材料。
+- `BriefSummary`（仅轻量摘要记录）保存 `summary_id`、`brief_revision`、内容哈希、生成/展示的对话标识；整体用户接受存 `accepted_revision` 与来源。它不是另一份可以自由变更的 Brief。
+- 每轮 API `request_id`/服务端 `turn_id` 负责轮次身份，`operation_key` 负责工具①**具体写入操作**的幂等，`brief_revision` 负责业务快照版本。见 §3.1；不能将一个 turn ID 误当成所有工具调用共用的幂等 key。
 
-会话/API 建议：
+API 请求示例：
 ```json
 {
   "session_id":"session-001",
@@ -315,7 +315,10 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
   "message":"转速改成18000转，我想了解脂润滑"
 }
 ```
-返回 `reply`、`revision`、本轮实际 `applied_changes`、精简 `design_status`、`tool_trace_summary`（工具名称/状态/耗时/来源，不含模型私有推理）、`deliverable`（若有）。模型不能先对用户声称写入成功再去调用工具写入。
+
+API 回复应包含 `reply`、实际 `revision`、本轮 `applied_changes`、`design_status`、`tool_trace_summary`、若生成交付的 `deliverable`。声称写入成功必须能与服务端实际状态对应；若有变更被拒绝，不能遗漏拒绝结果。
+
+**数据库实现建议**：SQLite 保存当前 Brief JSON、少量业务操作幂等记录、提案、摘要与必要会话数据即可；多次工具调用采用串行的乐观并发检查和短事务，不上复杂事件溯源/消息队列。
 
 ## 7. 工程知识与推荐的证据原则
 
@@ -333,7 +336,7 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
 
 **产物 A — DRAFT DesignBrief**：对话任意阶段可以保存；含已知、近似、未确认、缺失与来源。
 
-**产物 B — Complete DesignBrief**：工具⑤确认用户层必要字段和工程配置已明确，并记录当前版本的整体确认；不代表计算可执行。
+**产物 B — Complete DesignBrief**：工具⑤检查用户层必要条件满足，可先形成 `COMPLETE_UNCONFIRMED`；只有用户对展示过的当前 revision 摘要调用工具① `accept_brief` 后才成为 `CONFIRMED_COMPLETE`。完成与接受分开，不代表计算可执行。
 
 **产物 C — RoBASInputTemplate（未来 PR-06）**：43/324 位置级输入模板，除 Dw/Z/Dpw/fi/fo 及依赖项外，其他字段的来源及 profile 适用性经过独立审查；`TEMPLATE_READY` 是**未来适配器**给出的独立结果。
 
@@ -372,11 +375,11 @@ tests/
 | 阶段 | 内容 | 验收重点 | 不做 |
 |---|---|---|---|
 | 本设计 PR #2 | 替换旧流程、冻结五工具合同、更新测试和总控 | 文档互相一致，读者知道谁提问/谁校验/何时停止 | 不写业务代码 |
-| PR-01 | DGB 参数目录、DesignBrief、唯一受信更新及简单缺项检查 | 无 LLM 批量保存、修改、幂等、拒绝伪造确认；不错误填零 | 不做 ReAct |
-| PR-02 | ReAct loop，接入工具①②，用户意图响应和动态提问 | 真实 LLM 一轮内能自由决定更新/查询/回复，多轮处理修改和中途插问 | 不急于工程推荐 |
-| PR-03 | 工具③工程知识查询、可追溯数据源、通用专业解释 | 知识回答/数值有来源、缺数据不乱编、必要时查证 | 不建全量 RAG |
-| PR-04 | 工具④审核配置筛选、推荐包与工具①接受推荐 | 整套/部分接受；旧工况提案拒绝；不虚构配置适用性 | 不做独立兼容工具或优化 |
-| PR-05 | 工具⑤最终需求检查、版本化确认及导出 | 能导出带缺项的 draft 与完整 Brief；需求完成不误报 DATA ready | 不生成可执行 DATA |
+| PR-01 | DGB 字段合同、DesignBrief、唯一受信更新、简洁状态检查及 operation 级幂等 | 无 LLM 批量保存/多次写入/修订、拒绝假确认、约值与范围、正确版本冲突；预留 accept_brief 合同 | 不做 ReAct |
+| PR-02 | ReAct loop，接入工具①②，动态提问 + 当前草案只读预览 | 真实 LLM 批量提取/修改/中途插问；展示实时 Brief 草案；工具调用与状态追踪，拒绝虚假已保存回复 | 不急于工程推荐或正式导出 |
+| PR-03 | 工具③工程知识查询、可追溯数据源及推荐基线准备 | 知识回答/数值有来源、缺数据不乱编；准备少量人工审核的受限配置样例 | 不建全量 RAG |
+| PR-04 | 工具④审核配置筛选、字段依赖快照和工具①接受提案 | 整套/部分接受；相关工况变化失效、无关修改不失效；不虚构工程适用性 | 不做独立兼容工具或优化 |
+| PR-05 | 工具⑤最终需求检查/摘要与导出，工具① accept_brief 落地 | 展示摘要→用户接受该版本→正式交付；允许 draft，完成/用户确认/DATA ready 严格区分 | 不生成可执行 DATA |
 | PR-06（工程准入） | 未来独立 RoBASInputTemplate 适配 | 43/324 映射、五优化槽、来源/模型条件和 golden 对照 | 不自动运行优化/求解 |
 
 PR-01～02 可以不依赖 RoBAS EXE 的工程冻结完成；PR-03/04 的具体工程数值和规则受数据审核约束；PR-06 完整模板就绪需要 PR-00 后续证据。每个 PR 单独分支、测试、审阅，未经用户批准不合并或开展下一个。
@@ -389,11 +392,11 @@ PR-01～02 可以不依赖 RoBAS EXE 的工程冻结完成；PR-03/04 的具体�
 - 模型不用工具即可解释一般术语、具体表值必须查询；
 - 推荐前置条件缺失→模型自主追问；无可靠审核规则→不编造；
 - 用户接受整套/部分提案；重设转速后旧提案不能冒充有效；
-- 工具①唯一写入、revision 和 request_id、用户确认不可伪造；
-- 用户任意时刻导出不完整草案；完整 Brief 不等于 RoBAS DATA ready；
+- 工具①唯一写入、同一用户轮次内多次写入的操作级幂等、revision 并发校验、用户确认不可伪造；
+- PR-02 任意时刻展示当前 Brief 草案；PR-05 通过工具⑤导出带缺项的 draft 或正式交付；完整 Brief 不等于 RoBAS DATA ready；
 - 调用预算耗尽、工具报错、重复调用时可解释地停止。
 
-关键确定性不变式 100% 通过；真实 LLM 多轮成功率、错误类型、重复提问、工具调用次数与用户轮数单独报告。指标基线需通过首轮真实测试建立，不虚构效果。
+关键确定性不变式 100% 通过；多参数提取覆盖率、无效重复提问率和单任务达成率必须基于真实对话单独记录；真实 LLM 多轮成功率、错误类型、重复提问、工具调用次数与用户轮数单独报告。指标基线需通过首轮真实测试建立，不虚构效果。
 
 ## 12. 项目负责人如何掌握开发
 
