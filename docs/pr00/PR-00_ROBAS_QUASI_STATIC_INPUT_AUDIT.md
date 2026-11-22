@@ -95,4 +95,4 @@ TEMPLATE_READY必须：43记录/324字段身份与顺序固定；非优化必需
 |B09|当前Python API逐字段确认/来源不完备|NOT_IMPLEMENTED；后续PR范围待本次人工验收|
 |B10|API pytest缺cadquery；当前环境为Python3.14|BLOCKED：完整CAD测试环境；不安装/重构本次范围外依赖|
 
-验收自审：43/324完整性、每字段源码/初始化/属性/案例定位、数据库实际结构与来源、Python覆盖范围、确认gate已记录。单位/分支/五变量有效写入链/真实目标案例仍有上述阻断，故不勾选“工程协议冻结/原版UI同次生成闭环已通过”。历史审计工具检查 14 passed，Bearing_CAD 球轴承输入相关单元测试 23 passed；完整 API 测试因缺少 cadquery 无法收集。本轮无 EXE 实测；原始一次性采集工具/工件已从本仓库清理，测试记录仅供追溯。PR-00完成度为UNIT_TESTED（审计工件一致性）；完整工程输入链NOT_IMPLEMENTED；REAL_ENV_VERIFIED仅限本机UI只读观察与数据只读检查，不扩展至求解；ENGINEERING_REVIEWED未达到。不得合并，不开始PR-01，等待人工验收和阻断项处理决定。
+验收自审：43/324完整性、每字段源码/初始化/属性/案例定位、数据库实际结构与来源、Python覆盖范围、确认gate已记录。单位/分支/五变量有效写入链/真实目标案例仍有上述阻断，故不勾选“工程协议冻结/原版UI同次生成闭环已通过”。历史审计工具检查 14 passed，Bearing_CAD 球轴承输入相关单元测试 23 passed；完整 API 测试因缺少 cadquery 无法收集。本轮无 EXE 实测；原始一次性采集工具/工件已从本仓库清理，测试记录仅供追溯。PR-00完成度为UNIT_TESTED（审计工件一致性）；完整工程输入链NOT_IMPLEMENTED；REAL_ENV_VERIFIED仅限本机UI只读观察与数据只读检查，不扩展至求解；ENGINEERING_REVIEWED未达到。本 PR-00 的工程冻结仍未达到，**不得将其当作已通过工程协议验收**；是否合并本审计 PR 须经负责人另行判断。2026-11-22 准入澄清：**用户层 PR-01～02（字段模型及 ReAct 对话）可在架构文档验收、用户授权后独立推进**，不需要先关闭全部 RoBAS 工程阻断；但 PR-06 的 RoBASInputTemplate 适配及 TEMPLATE_READY 必须继续满足本报告要求。本次澄清不代表自动授权开发或合并。
