@@ -107,23 +107,23 @@
 
 | Agent 可见工具 | 具体职责 | 权限边界 |
 |---|---|---|
-| \`update_design_brief\` | 批量记录/修改参数，接受已展示的推荐提案 | 唯一受信参数写入；根据用户原话、revision、proposal 验证 |
-| \`get_design_status\` | 返回 known/missing/pending_confirmation/conflicts | 仅客观状态；**不返回问句规划/负责人/优先级分数** |
-| \`lookup_engineering_knowledge\` | 查询有来源的型号、材料、润滑、游隙、配合知识 | 模型通用解释可以直接说；精确工程数值需有来源 |
-| \`recommend_engineering_config\` | 在当前受信工况下筛选审核配置并生成推荐包 | 推荐只生成提案，用户接受前不能置为 confirmed |
-| \`finalize_design_brief\` | \`check/export\` 最终需求检查及版本化交付 | 只判断用户层 Brief，不能宣称 RoBAS 324 字段计算就绪 |
+| `update_design_brief` | 批量记录/修改参数，接受已展示的推荐提案 | 唯一受信参数写入；根据用户原话、revision、proposal 验证 |
+| `get_design_status` | 返回 known/missing/pending_confirmation/conflicts | 仅客观状态；**不返回问句规划/负责人/优先级分数** |
+| `lookup_engineering_knowledge` | 查询有来源的型号、材料、润滑、游隙、配合知识 | 模型通用解释可以直接说；精确工程数值需有来源 |
+| `recommend_engineering_config` | 在当前受信工况下筛选审核配置并生成推荐包 | 推荐只生成提案，用户接受前不能置为 confirmed |
+| `finalize_design_brief` | `check/export` 最终需求检查及版本化交付 | 只判断用户层 Brief，不能宣称 RoBAS 324 字段计算就绪 |
 
-不再设独立 \`confirm_recommendation\`（合并进工具①）；用户明确选择 V1 **暂不增加** \`check_solver_compatibility\`；也没有 \`question_planner\`。
+不再设独立 `confirm_recommendation`（合并进工具①）；用户明确选择 V1 **暂不增加** `check_solver_compatibility`；也没有 `question_planner`。
 
 ### 5.1 单轮自主工具循环
 
-\`\`\`text
+```text
 用户消息 → 加载 DesignBrief 与会话摘要 → Conversation Agent
      ├─ 直接回复/自然语言提问 → END，等待用户
      └─ 自主选择工具 → 受控工具执行 → 结构化结果返回 Agent
                                                │
                                                └── 再次决定调用工具或回复
-\`\`\`
+```
 
 用户回复会开启下一轮。每轮设可调整的调用次数与重复调用保护；状态写入串行、带 revision/request_id。工具①成功后顺带返回新状态，通常无需再调用工具②。模型**自主决定问什么和怎么问**，但不能修改客观必需字段定义、伪造用户确认或编造专业参数。
 
@@ -133,7 +133,7 @@
 
 ### 5.3 工程边界
 
-\`DesignBrief\` 是唯一可信参数来源；\`PendingProposals\` 仅是待确认方案；\`ConversationHistory\` 不作为可信参数副本。用户确认状态只有 confirmed/unconfirmed，来源与近似/范围信息单独记录。用户修改工况后相关派生量和旧推荐适用性失效，不擅自修改原有用户选择。
+`DesignBrief` 是唯一可信参数来源；`PendingProposals` 仅是待确认方案；`ConversationHistory` 不作为可信参数副本。用户确认状态只有 confirmed/unconfirmed，来源与近似/范围信息单独记录。用户修改工况后相关派生量和旧推荐适用性失效，不擅自修改原有用户选择。
 
 工具⑤只检查用户层需求并允许导出缺项标记的草案。**完整 Brief、整份用户接受、RoBAS TEMPLATE_READY 和 RUNNABLE_READY 是不同概念**；后续 PR-06 仍独立建立严格工程协议 gate，暂不设 Solver Compatibility 工具不意味着忽略实际模型限制。
 
@@ -184,7 +184,7 @@
 
 ## 9. 总体架构：单一 Agent + 五工具 + 普通后台服务
 
-\`\`\`text
+```text
 Conversation API / 会话加载
        ↓
 Conversation Agent（有界 ReAct 模型-工具循环）
@@ -195,7 +195,7 @@ Conversation Agent（有界 ReAct 模型-工具循环）
        └── finalize_design_brief         ← FinalizationService（检查+导出）
        ↓
 返回用户消息，等待下一轮
-\`\`\`
+```
 
 工具背后可有普通 Python 函数，不等于独立 Agent。推荐工具直接使用知识仓和筛选规则，不必让模型先强制调用知识查询工具。Python3.11+、Pydantic、SQLite 和最小 LangGraph/等价 agent loop 足够；不预先写空模块、不建立复杂通用规则引擎。RoBASInputAdapter 留待 PR-06，作为独立的计算输入准备能力而非第六个对话工具。
 
@@ -278,7 +278,7 @@ PR-00 未解决的工程计算阻断不得被宣称已关闭；用户层参数�
 
 **最终设计入口：** [五工具 ReAct 详细架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md) · [ReAct 与五工具测试矩阵](agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md)。
 
-用户明确修订：采用 **Conversation Agent 自主 ReAct 工具循环**；工具②仅返回已知/缺失/待确认/冲突，**Agent 自己决定问什么、怎么问**；取消独立确认工具，其能力合并进工具①；工具⑤为最终需求检查与版本化导出；不开发独立 \`check_solver_compatibility\`。这是目前唯一有效的 Agent V1 行为设计，旧固定五步骤与五动作路由不再适用。
+用户明确修订：采用 **Conversation Agent 自主 ReAct 工具循环**；工具②仅返回已知/缺失/待确认/冲突，**Agent 自己决定问什么、怎么问**；取消独立确认工具，其能力合并进工具①；工具⑤为最终需求检查与版本化导出；不开发独立 `check_solver_compatibility`。这是目前唯一有效的 Agent V1 行为设计，旧固定五步骤与五动作路由不再适用。
 
 ### 项目负责人状态看板
 
