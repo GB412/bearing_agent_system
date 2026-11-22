@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
+
 import pytest
 
 from bearing_agent_system import SQLiteDesignBriefStore, TrustedContext, UpdateBatch
@@ -211,3 +214,40 @@ def test_correct_unit_conversion_respects_explicit_evidence(service):
     out = update(service, [ch("dimensions.d_mm", 2.5, "内径2.5cm", "cm")], "轴承内径2.5cm")
     assert out.revision == 1
     assert out.design_status.known["dimensions.d_mm"]["value"] == 25
+
+
+def test_temp_directory_cleanup_after_writes_and_reads():
+    """All SQLite handles must be closed before Windows removes the directory."""
+    from bearing_agent_system import DesignBriefService
+
+    with tempfile.TemporaryDirectory(prefix="pr01-sqlite-close-") as directory:
+        database = Path(directory) / "brief.sqlite3"
+        service = DesignBriefService(SQLiteDesignBriefStore(database))
+        outcome = update(
+            service,
+            [ch("dimensions.d_mm", 25, "内径25mm", "mm")],
+            "内径25mm",
+            session="cleanup",
+        )
+        assert outcome.revision == 1
+        restored, revision = SQLiteDesignBriefStore(database).get_brief("cleanup")
+        assert revision == 1
+        assert restored.dimensions.d_mm.value == 25
+    assert not database.exists()
+
+
+def test_temp_directory_cleanup_after_rejected_write():
+    """Rollback/rejection must not leak SQLite handles either."""
+    from bearing_agent_system import DesignBriefService
+
+    with tempfile.TemporaryDirectory(prefix="pr01-sqlite-rollback-") as directory:
+        database = Path(directory) / "brief.sqlite3"
+        service = DesignBriefService(SQLiteDesignBriefStore(database))
+        outcome = update(
+            service,
+            [ch("dimensions.d_mm", -25, "内径-25mm", "mm")],
+            "内径-25mm",
+            session="rollback",
+        )
+        assert outcome.rejected_changes
+    assert not database.exists()
