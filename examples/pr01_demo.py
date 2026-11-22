@@ -6,7 +6,12 @@ import json
 import tempfile
 from pathlib import Path
 
-from bearing_agent_system import DesignBriefService, SQLiteDesignBriefStore, TrustedContext, UpdateBatch
+from bearing_agent_system import (
+    DesignBriefService,
+    SQLiteDesignBriefStore,
+    TrustedContext,
+    UpdateBatch,
+)
 
 
 def main() -> None:
