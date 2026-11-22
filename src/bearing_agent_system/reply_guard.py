@@ -1,34 +1,28 @@
-"""Server-side guard for write receipts and trusted DesignBrief summaries.
+"""Deterministic, field-level receipts for a single conversation turn.
 
-This is not a semantic verifier. It prevents an unexecuted tool write from
-becoming a "saved" confirmation and avoids summaries based on past LLM claims.
+Does not infer the user's intent or classify questions. The LLM owns the
+natural-language conversation; trusted tool results own storage claims.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
-# Only affirmative first-person/new write statements; never infer success from text.
+
+# Narrow fallback ONLY for LLM-authored new-write claims, not intent routing.
+# The strongest guarantee remains the tool receipt, not natural-language regex.
 WRITE_CLAIM = re.compile(
     r"(?:已|已经|成功|现已|刚刚|刚才|本轮已|为你|帮你|替你).{0,10}"
     r"(?:记录|保存|写入|录入|更新|修改|设置|登记)"
     r"|(?:记录|保存|写入|录入|更新|修改|设置)(?:好了|成功|完成|到草案)"
 )
-SUMMARY_INTENTS = (
-    "目前", "当前", "此前", "之前", "已确认", "已确定", "进度",
-    "进展", "汇总", "总结", "草案", "清单", "有哪些", "还缺", "整理",
-    "已经保存", "已记录",
-)
-SUMMARY_ANSWER = re.compile(
-    r"(?:\*\*已确认\*\*|\*\*已保存\*\*|目前草案状态|"
-    r"当前设计需求汇总|已确认的参数(?:如下|：|:))"
-)
+PAST_CONTEXT = ("此前", "以前", "之前", "上轮", "上次", "历史")
 UNSUPPORTED_CLAIMS = re.compile(
     r"(?:已完成全部设计|需求已正式确认|RoBAS.{0,10}(?:可运行|已就绪)"
     r"|已经完成校核|CAD已生成)", re.I
 )
-
 LABELS = {
     "dimensions.d_mm": "内径 d",
     "dimensions.D_mm": "外径 D",
@@ -53,30 +47,64 @@ VALUES = {"grease": "脂润滑", "oil": "油润滑", "other": "其他"}
 UNITS = {"degC": "℃"}
 
 
-def _summary_requested(user_message: str) -> bool:
-    explicit = ("汇总", "总结", "清单", "整理", "查看", "进度", "进展", "列出")
-    if any(word in user_message for word in explicit):
-        return True
-    return (any(mark in user_message for mark in ("？", "?"))
-            and any(word in user_message for word in SUMMARY_INTENTS))
+@dataclass(frozen=True)
+class WriteOutcome:
+    applied: tuple[str, ...]
+    unresolved: tuple[tuple[str, str], ...]
+    unknown_failures: tuple[str, ...]
 
 
-def summary_intent(user_message: str, answer: str = "") -> bool:
-    return _summary_requested(user_message) or bool(SUMMARY_ANSWER.search(answer))
+def reconcile_writes(trace: list[dict[str, Any]]) -> WriteOutcome:
+    """Resolve failed attempts by *later* successful writes of the same path.
+
+    A rejected batch is atomic, so all attempted paths remain unresolved until
+    a subsequent successful call actually applies or proves a value exists.
+    Read-only tool errors are not counted as write failures.
+    """
+    applied: list[str] = []
+    unresolved: dict[str, str] = {}
+    unknown: list[str] = []
+    for entry in trace:
+        if entry.get("name") != "update_design_brief":
+            continue
+        if entry.get("ok"):
+            for path in entry.get("applied_changes", []):
+                if path not in applied:
+                    applied.append(path)
+                unresolved.pop(path, None)
+            continue
+        rejected = {
+            item.get("path"): item.get("reason", "未通过校验")
+            for item in entry.get("rejected_changes", [])
+            if item.get("path")
+        }
+        paths = list(dict.fromkeys(
+            entry.get("attempted_paths", []) or list(rejected)
+        ))
+        if paths:
+            for path in paths:
+                unresolved[path] = rejected.get(path, "同批更新未通过校验")
+        else:
+            unknown.append(entry.get("error") or "未识别的工具更新错误")
+    return WriteOutcome(tuple(applied), tuple(unresolved.items()), tuple(unknown))
 
 
-def needs_write_repair(
-    answer: str,
-    user_message: str,
-    applied_paths: list[str],
-) -> bool:
-    """Request a single repair only for an unbacked NEW-write claim."""
-    if applied_paths or _summary_requested(user_message):
+def needs_write_repair(answer: str, trace: list[dict[str, Any]]) -> bool:
+    """One bounded retry only when the model claims an unexecuted NEW write.
+
+    This lexical detector is a limited fallback, not an intent classifier.
+    Tool use is never manufactured based on these words.
+    """
+    if any(t.get("name") == "update_design_brief" for t in trace):
         return False
-    return bool(WRITE_CLAIM.search(answer))
+    if any(t.get("name") == "get_design_status" for t in trace):
+        return False
+    return bool(WRITE_CLAIM.search(answer)) and not any(
+        marker in answer for marker in PAST_CONTEXT
+    )
 
 
-def _known_value(path: str, value: Any) -> str:
+def format_field(path: str, value: Any) -> str:
     label = LABELS.get(path, path)
     if isinstance(value, dict) and "value" in value:
         raw = value["value"]
@@ -87,99 +115,86 @@ def _known_value(path: str, value: Any) -> str:
         ) else ""
         return f"{label}={rendered}{unit}{pending}"
     if isinstance(value, list):
-        return f"{label}：{len(value)}条已生效约束（见 /status）"
+        return f"{label}：{len(value)}条约束（见 /status）"
     if isinstance(value, dict):
         return f"{label}：{value.get('mode', '已设置')}（见 /status）"
     return f"{label}={value}"
 
 
 def trusted_summary(status: dict[str, Any]) -> str:
-    """Construct an exhaustive status from saved SQLite facts, not chat history."""
-    saved: list[str] = []
+    """Explicit, optional view; calling this never depends on keywords."""
+    confirmed: list[str] = []
     pending: list[str] = []
     for path, value in status.get("known", {}).items():
         if path == "bearing.type":
             continue
-        item = _known_value(path, value)
+        item = format_field(path, value)
         if isinstance(value, dict) and (
             value.get("confirmed") is False or value.get("precision") not in (None, "exact")
         ):
             pending.append(item)
         else:
-            saved.append(item)
+            confirmed.append(item)
     missing = [LABELS.get(path, path) for path in status.get("missing", [])]
-    result = [
-        "当前 DesignBrief 草案（仅依据数据库中的实际记录）：",
-        "已确认/已生效：" + ("；".join(saved) if saved else "暂无"),
+    return "\n".join([
+        "当前 DesignBrief 草案（仅依据实际存储）：",
+        "已确认/已生效：" + ("；".join(confirmed) if confirmed else "暂无"),
         "近似/待确认：" + ("；".join(pending) if pending else "暂无"),
         "未提供：" + ("；".join(missing) if missing else "暂无"),
-    ]
-    if status.get("conflicts"):
-        result.append("冲突：" + "；".join(status["conflicts"]))
-    result.append("可以输入 /status 或 /brief 核对完整数据。")
-    return "\n".join(result)
+    ])
 
 
-def _followup_questions(answer: str) -> str:
-    """Retain only innocuous questions, not model-authored saved-field claims."""
-    questions: list[str] = []
+def _free_text_without_new_write_claims(answer: str) -> str:
+    """Remove only model-authored commit claims; preserve engineering prose.
+
+    The system displays a separate verified receipt. Do not let a second,
+    unverified model sentence claim to have saved additional fields.
+    """
+    if not WRITE_CLAIM.search(answer):
+        return answer.strip()
+    clean: list[str] = []
     for line in answer.splitlines():
-        # A saved-value sentence and the next question may share one line.
-        for clause in re.split(r"(?<=[。；;])", line):
-            item = clause.strip()
-            # "已记录尺寸，下一步请提供转速。" contains both a claim
-            # and a useful prompt. Preserve only the prompt suffix.
-            if WRITE_CLAIM.search(item):
-                next_step = re.search(r"下一步|接下来", item)
-                item = item[next_step.start():] if next_step else ""
-            if not item or WRITE_CLAIM.search(item) or "已确认" in item:
+        parts = re.split(r"([，,。；;])", line)
+        retained: list[str] = []
+        for i in range(0, len(parts), 2):
+            phrase = parts[i]
+            delimiter = parts[i + 1] if i + 1 < len(parts) else ""
+            if WRITE_CLAIM.search(phrase) and not any(
+                mark in phrase for mark in PAST_CONTEXT
+            ):
                 continue
-            if not (("？" in item or "?" in item)
-                    or item.startswith(("下一步", "接下来"))):
-                continue
-            questions.append(item)
-            if len(questions) == 2:
-                return "\n".join(questions)
-    return "\n".join(questions)
+            retained.append(phrase + delimiter)
+        clean.append("".join(retained).strip(" ，,；;"))
+    return "\n".join(line for line in clean if line).strip()
 
 
 def verified_reply(
     answer: str,
-    user_message: str,
+    trace: list[dict[str, Any]],
     status: dict[str, Any],
-    applied_paths: list[str],
-    failed_writes: list[dict[str, Any]],
 ) -> str:
-    """A model answer cannot authorize a write or claim an unpersisted field."""
-    applied_paths = list(dict.fromkeys(applied_paths))
-    if failed_writes:
-        names = "、".join(LABELS.get(path, path) for path in applied_paths) or "无"
-        return (
-            "本轮有参数更新未通过校验。实际已写入字段：" + names
-            + "。未通过的字段没有保存。请用 /trace 查看拒绝原因，"
-            "用 /status 核对当前数据。"
-        )
-    if summary_intent(user_message, answer):
-        return trusted_summary(status)
-    if WRITE_CLAIM.search(answer):
-        if not applied_paths:
-            return (
-                "本轮没有成功写入新的设计参数，不能宣称已保存。"
-                "请补充或确认相关信息，或输入 /status 检查已有数据。"
-            )
-        known = status.get("known", {})
-        lines = [
-            _known_value(path, known[path]) if path in known
-            else f"{LABELS.get(path, path)}：已更新（详见 /status）"
-            for path in applied_paths
+    """Compose server-owned receipt + model's explanation; never route intent."""
+    result = reconcile_writes(trace)
+    lines: list[str] = []
+    known = status.get("known", {})
+    if result.applied:
+        rendered = [
+            format_field(path, known[path]) if path in known
+            else f"{LABELS.get(path, path)}：已更改（详情见 /status）"
+            for path in result.applied
         ]
-        followup = _followup_questions(answer)
-        return "本轮实际已写入：" + "；".join(lines) + "。" + (
-            "\n" + followup if followup else ""
-        )
+        lines.append("本轮实际已写入：" + "；".join(rendered) + "。")
+    if result.unresolved:
+        items = [
+            f"{LABELS.get(path, path)}（{reason}）"
+            for path, reason in result.unresolved
+        ]
+        lines.append("本轮仍未保存：" + "；".join(items) + "。可用 /trace 查看详情。")
+    if result.unknown_failures:
+        lines.append("还有无法确定字段的更新失败，请用 /trace 查看详情。")
     if UNSUPPORTED_CLAIMS.search(answer):
-        return (
-            "当前只有需求草案，尚未进行整份确认、工程校核、"
-            "RoBAS 输入验证或 CAD 生成。"
-        )
-    return answer
+        answer = "当前仅建立需求草案，尚未进行工程校核、RoBAS 验证或 CAD 生成。"
+    natural = _free_text_without_new_write_claims(answer)
+    if not natural and not lines:
+        return "本轮没有成功写入新的参数。请澄清需求或通过 /status 核对已有数据。"
+    return "\n".join([*lines, natural] if natural else lines)
