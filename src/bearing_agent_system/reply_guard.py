@@ -10,7 +10,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-
 # Narrow fallback ONLY for LLM-authored new-write claims, not intent routing.
 # The strongest guarantee remains the tool receipt, not natural-language regex.
 WRITE_CLAIM = re.compile(
