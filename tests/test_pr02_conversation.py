@@ -537,7 +537,9 @@ def test_partial_batch_failed_then_partial_correction_reports_remaining(environm
     assert result.revision == 1
     assert "本轮实际已写入：润滑方式=油润滑" in result.answer
     assert "本轮仍未保存：钢球材料" in result.answer
-    assert "关于钢球材料仍需要澄清" in result.answer
+    # An unresolved write suppresses model prose, which might contain a
+    # false success claim. The trusted per-field receipt remains visible.
+    assert "关于钢球材料仍需要澄清" not in result.answer
     assert service.get_brief("s")[0].engineering.materials.ball_id is None
     assert reconcile_writes(result.tool_trace).unresolved[0][0] == (
         "engineering.materials.ball_id"
@@ -610,3 +612,44 @@ def test_plain_question_with_summary_words_stays_natural(environment):
     assert model.calls == 1
     assert "温度、润滑和机械条件" in result.answer
     assert "当前 DesignBrief 草案" not in result.answer
+
+
+
+def test_explicit_status_marker_preserves_explanation_and_uses_db(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        AIMessage(content=(
+            "保持架选型时要考虑实际温升和润滑条件。\n"
+            "[[DESIGN_STATUS]]\n"
+            "如需分析冲压钢与尼龙保持架，也可以继续讨论。"
+        )),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "请说明当前设计状态并简要分析保持架", turn_id="both"
+    )
+    assert model.calls == 1
+    assert result.error_type is None
+    assert "[[DESIGN_STATUS]]" not in result.answer
+    assert "当前 DesignBrief 草案" in result.answer
+    assert "保持架选型时要考虑实际温升" in result.answer
+    assert "如需分析冲压钢与尼龙保持架" in result.answer
+    assert "内圈材料" in result.answer
+
+
+def test_unverified_confirmed_list_only_replaces_that_line(environment):
+    service, history = environment
+    model = ScriptedChatModel(replies=[
+        AIMessage(content=(
+            "材料选择建议先考虑工作温度与润滑。\n"
+            "**已确认**：所有钢球GCr15（其实没有写入）。\n"
+            "用户如果尚未决定材料，可以先保留为未知。"
+        )),
+    ])
+    result = ConversationAgent(service, history, model).respond(
+        "s", "告诉我材料选择的考虑因素", turn_id="local-status"
+    )
+    assert result.error_type is None
+    assert "材料选择建议先考虑工作温度与润滑" in result.answer
+    assert "当前 DesignBrief 草案" in result.answer
+    assert "所有钢球GCr15" not in result.answer
+    assert "用户如果尚未决定材料" in result.answer
