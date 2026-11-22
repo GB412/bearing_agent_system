@@ -165,40 +165,27 @@ Conversation Agent（LLM）
 
 ### 4.2 工具② `get_design_status`（简单只读）
 
-**职责只限于客观状态，不替模型规划问题。**
+**工具②只报告客观缺项，不负责提问策略、优先级打分、责任归属、推荐下一动作。** 使用同一份 [字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) 中 R/C/O/OPT 定义计算状态。工具①有效写入后应将最新状态作为结果的一部分，避免重复查询。
 
 ```json
 {
   "known": {
-    "dimensions.d_mm": 25,
-    "dimensions.D_mm": 52,
-    "dimensions.B_mm": 15,
-    "operating.inner_speed_rpm": 18000,
-    "operating.outer_speed_rpm": 0
+    "dimensions.d_mm": {"value":25,"unit":"mm","confirmed":true,"precision":"exact"},
+    "operating.temperature_c": {"value":60,"unit":"degC","confirmed":false,"precision":"approximate"}
   },
-  "missing": [
-    "operating.radial_load_n",
-    "operating.axial_load_n",
-    "operating.temperature_c",
-    "engineering.materials",
-    "engineering.lubrication",
-    "engineering.clearance_and_fits"
-  ],
-  "pending_confirmation": [],
+  "missing": ["operating.radial_load_n","operating.axial_load_n"],
+  "pending_confirmation": ["operating.temperature_c"],
   "conflicts": []
 }
 ```
 
-这是**示例状态**，不表示 d/D/B 会自动从无来源型号中补出。字段可以附简单单位/不确定性/状态，不建立复杂的「责任归属、优先级打分、预生成问题列表、处理动作」系统。已确实标记为非适用的条件项不列为 `missing`；近似值、上限与确定值的区别不能被扁平化隐藏。
+- `known` 中允许有用户给过、但**尚不能当作最终固定值**的估计/范围；这类值必须保留精度和确认信息；
+- `missing` 是当前要求下还没有相应信息/可用候选的必要项，`pending_confirmation` 是已有候选或估计但尚不足以满足完成条件的项；不要将 `null` 视为 0；
+- 按当前选择条件不适用的 C 字段不列为缺项；五个优化槽默认不列为用户需补填的缺项；
+- `conflicts` 只包含客观矛盾，附最简证据路径即可；
+- **返回数据，不返回预写好的问句**。模型依据用户当前意图、对话历史与状态自主选问什么、怎么问，避免用户已答却重复追问。
 
-工具返回以后：
-- **模型负责判断问哪一个、问几个、怎么用自然语言问**；
-- 一般先处理用户当前意图，再关注关键工况和推荐前置条件，但**不是固定问卷**；
-- 用户表示不知道材料时，可调用工具④或工具③，不重复问材料名；
-- 对话历史帮助避免刚刚问过又马上重复；如果用户只想了解知识，先解释而不是强制继续填表；
-- 模型不得仅因为“自己觉得不重要”便把 `missing` 从检查器中删掉。
-
-工具①更新成功后已经附精简状态。用户单纯要求查看进度，或 LLM 真正需要刷新状态时，才主动调用工具②。
+本工具查询对话历史用于解释“用户说不知道”的事实，但不得把历史消息中未提交的数字当作已确认 DesignBrief。
 
 ### 4.3 工具③ `lookup_engineering_knowledge`（只读知识）
 
@@ -215,56 +202,68 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
 
 建议输入：
 ```json
-{"config_type":"materials_and_cage | lubrication | clearance_and_fits","design_revision":8}
+{"config_type":"materials_and_cage | lubrication | clearance_and_fits","observed_revision":8}
 ```
-工具**自己读取当前受信 DesignBrief**，不让模型重复传 d/D/B/转速等工况，以免传旧值。若 `design_revision` 不匹配当前版本，拒绝创建旧工况提案。
 
-规则：检查推荐所需前提 → 查询有限的**已审核**候选组合 → 校验已知适用条件、来源及必要属性 → 形成少量备选 → 返回证据和限制。**工具内部使用工具③底层同一数据仓/规则，不要求模型另行先调工具③。**
+模型只选择推荐类型，**不能自填工况数值**。工具从指定版本的受信 DesignBrief 读取尺寸、转速、载荷、温度等条件，先判断是否具备必要前置数据，再通过内部共用的 KnowledgeRepository 和审核规则筛选有限候选。
 
-返回：
+返回成功示例：
 ```json
 {
-  "status": "PROPOSAL_READY",
-  "proposal_id": "material-A",
-  "design_revision": 8,
-  "items": [{"path":"engineering.ring_material","value":"reviewed_material_id"}],
-  "source_refs": ["reviewed-rule:..."],
-  "depends_on": ["operating.inner_speed_rpm","operating.temperature_c"],
-  "limitations": [],
-  "review_status": "REVIEWED"
-}
-```
-若缺少前置条件，则返回 `NEED_INPUT` 与缺哪些条件；无审核数据返回 `NO_VERIFIED_CONFIGURATION`；当前 RoBAS 模型兼容性尚未证明的候选**不得宣称可运行**。在 PR-04 不单独开发 `check_solver_compatibility` 工具：推荐适用性筛选只检查当前**有证据的**条件，底层模型未知保持 UNKNOWN，不假装已验证。
-
-推荐是一个 **proposal**，不是 DesignBrief 中的用户已确认值。推荐可能同时包含材料、钢球、保持架材料；允许用户整套或部分接受。模型负责解释推荐，不得创造没有返回的工程数字或冒充“最优方案”。
-
-### 4.5 工具⑤ `finalize_design_brief`（最终检查与导出）
-
-输入：
-```json
-{"mode":"check | export","expected_revision":8}
-```
-`check` 不修改业务状态，只报告设计需求是否完整；`export` 导出**指定修订版本**的需求文档（完整或标记为草案）。若用户希望将整个 Brief 标记为「已确认」，必须已经明确看过当前摘要并接受**该版本**；这项证据在受信状态层验证，不能由模型以 `mode=export` 代替用户同意。
-
-```json
-{
-  "revision": 8,
-  "brief_complete": false,
-  "missing": ["engineering.lubrication"],
-  "unconfirmed": ["engineering.clearance_and_fits"],
-  "conflicts": [],
-  "can_export_draft": true,
-  "can_export_complete": false,
-  "deliverable": null,
-  "robas_template_ready": "NOT_ASSESSED"
+  "status":"PROPOSAL_READY",
+  "proposal_id":"materials-A",
+  "created_revision":8,
+  "items":[{"path":"engineering.materials.ball_id","value":"reviewed_ball_material_id"}],
+  "depends_on":["operating.inner_speed_rpm","operating.temperature_c"],
+  "dependency_snapshot":"sha256-of-normalized-relevant-values-and-rule-version",
+  "source_refs":["reviewed-rule:..."],
+  "limitations":[],
+  "evidence_status":"REVIEWED"
 }
 ```
 
-检查项：d/D/B、套圈转速、真实单轴承 Fr/Fa、分析温度；需要用户确认的材料/润滑/游隙和配合；条件项与自相矛盾参数；偏好与约束记录；来源和 revision；五优化槽保留为待优化或明确锁定。
+**重要修复：创建时的整体 `created_revision` 用于审计，不作为提案是否过期的唯一条件。** 例如用户只修改应用备注，材料提案无需自动失效；用户修改转速、温度或影响适用性的材料约束，则根据 `depends_on` 与规范化依赖快照重新评估。快照应考虑单位转换后的值、相关假设、审核规则/数据版本，不能仅比较裸数字；接受时同时确认提案未被撤回/取代、未发生受信字段冲突。
 
-**特别边界**：工具⑤是 **用户层需求完整性与交付检查**，不是当前就检查 RoBAS 324 字段的求解输入完整性。V1 暂不实现独立 Solver Compatibility 工具。未来 PR-06 的确定性 RoBASAdapter 有自己的协议 gate，只有那时经过审核才能产生 `TEMPLATE_READY`；工具⑤只能返回 `robas_template_ready: NOT_ASSESSED` 或后续接收适配器的独立结果，**不得因 brief_complete=true 自称 DATA 可运行**。
+`observed_revision` 是创建时的并发前置条件：工具调用执行时先保证使用的设计快照仍是最新版本，否则返回 `STALE_CONTEXT` 并让模型重新读取，不能在旧工况上生成新提案。用户之后接受已展示的旧提案时，按**依赖快照**验证是否仍适用，而不是简单要求 `current_revision===created_revision`。
 
-模式分支：用户随时能导出标记为 INCOMPLETE 的草案；只有 `brief_complete=true` 且没有阻断时才允许作为完成版需求导出。需要保存确认摘要、版本和生成文件/内容的可追溯 ID，不能从不匹配 revision 的旧内容导出。
+若不足条件返回 `NEED_INPUT`（列出缺少的推荐必要条件）；找不到可审核配置返回 `NO_VERIFIED_CONFIGURATION`，不可由 LLM 临时补造工程数字。推荐不自动写 DesignBrief confirmed 字段，模型需向用户展示候选及来源、说明适用限制，再等待接受。**推荐适用性与 RoBAS 求解模型兼容性不是同一个判定**：暂不实现独立 `check_solver_compatibility`，未验证的模型条件保持 UNKNOWN，不宣称可运行。
+
+### 4.5 工具⑤ `finalize_design_brief`（最终检查、摘要预览与导出）
+
+建议输入：
+```json
+{"mode":"check | export","expected_revision":12}
+```
+
+**`check`**：根据 [字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) 计算用户层需求完整性，返回 `brief_complete`、`missing`、`unconfirmed`、`conflicts`、`brief_user_accepted`，并生成可展示的规范化 `review_summary`、`summary_id` 与绑定内容哈希/版本。**生成摘要不等于用户已经看过**；只有在用户实际收到该版本摘要的可核验展示记录后，才能接受它。
+
+**`export`**：校验当前期望版本和实际快照后，输出带明确状态的 DGBDesignBrief/v1（含来源、五优化槽及未决项）。缺项时只可导出 `DRAFT/INCOMPLETE`；用户层完整时可导出 `COMPLETE_UNCONFIRMED`，若业务要求正式确认交付则还必须经工具① `accept_brief` 取得 `brief_user_accepted=true` 才标 `CONFIRMED_COMPLETE`。导出不代替确认，也不在无用户要求时每轮自动生成文件。
+
+检查输出示例：
+```json
+{
+  "revision":12,
+  "brief_complete":false,
+  "brief_user_accepted":false,
+  "missing":["engineering.lubrication.lubricant_id"],
+  "unconfirmed":["operating.temperature_c"],
+  "conflicts":[],
+  "summary_id":"summary-12-digest",
+  "review_summary":"可供用户审阅的字段及未决项摘要",
+  "can_export_draft":true,
+  "can_export_complete":false,
+  "robas_template_ready":"NOT_ASSESSED"
+}
+```
+
+**完整确认闭环**：
+
+1. 工具⑤ `check` 生成对应 revision 的摘要（内容 ID/哈希）；
+2. Agent 向用户展示摘要，服务端记录其已展示（应绑定实际用户可见回复）；
+3. 用户明确回复“确认这一版”，Agent 使用工具① `accept_brief(brief_revision, summary_id)`；程序核对展示、当前版本、原话后记录确认；
+4. 工具⑤ `export` 导出带确认状态的当前版本；后来修改任一受信设计参数都会令原整份确认不适用于新版本。
+
+**不要混淆**：`brief_complete` 是用户层参数合同通过，不等于用户已整体接受，也不代表 RoBAS 43/324 输入可求解。V1 工具⑤一律返回 `robas_template_ready=NOT_ASSESSED`；PR-06 独立的 RoBASAdapter 将来再给出 `TEMPLATE_READY` / 非就绪检查结果。
 
 ## 5. Agent 如何决定「下一个问什么、怎么问」
 
