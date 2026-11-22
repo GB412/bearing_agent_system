@@ -65,10 +65,19 @@ class TurnTools:
                 except (ValidationError, ValueError, TypeError) as exc:
                     result = {"ok": False, "error": "INVALID_UPDATE",
                               "message": str(exc)[:600]}
+            # Record field identity even for schema validation failures.
+            # Do not persist rejected proposed values or model-supplied evidence.
+            attempted_paths = []
+            if name == "update_design_brief" and isinstance(args.get("changes"), list):
+                attempted_paths = list(dict.fromkeys(
+                    item["path"] for item in args["changes"]
+                    if isinstance(item, dict) and isinstance(item.get("path"), str)
+                ))
             self.trace.append({
                 "name": name,
                 "ok": result["ok"],
                 "revision": result.get("revision"),
+                "attempted_paths": attempted_paths,
                 "applied_changes": result.get("applied_changes", []),
                 "rejected_changes": result.get("rejected_changes", []),
                 "error": result.get("error"),
