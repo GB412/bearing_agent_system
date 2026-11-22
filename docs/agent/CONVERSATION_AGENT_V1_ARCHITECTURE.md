@@ -7,18 +7,18 @@
 
 ## 0. 项目负责人：一页看懂 V1
 
-**目标**：通过一个 Conversation Agent 与用户多轮对话，获取、澄清、解释、推荐和确认深沟球轴承（DGB）的设计需求，生成版本化的 \`DGBDesignBrief/v1\`，供未来五变量优化及 RoBAS 拟静力学输入适配使用。
+**目标**：通过一个 Conversation Agent 与用户多轮对话，获取、澄清、解释、推荐和确认深沟球轴承（DGB）的设计需求，生成版本化的 `DGBDesignBrief/v1`，供未来五变量优化及 RoBAS 拟静力学输入适配使用。
 
 **架构**：一个自主决策的 Conversation Agent，最多暴露 **5 个工具**。模型自主决定「问什么、怎么问、何时查知识、何时推荐、是否继续调用工具」；确定性程序决定「什么值能写入、来源是否可信、哪些字段缺失、方案是否符合审核规则、何时可宣称交付完成」。不用 Supervisor、多专业 Agent、复杂通用规则引擎。
 
 **工具**：
-1. \`update_design_brief\`：唯一受信写入，保存/修改用户明确提供的参数或接受已展示的推荐。
-2. \`get_design_status\`：**简单状态查询**，只读当前已知、缺失、待确认、冲突；**不替模型决定提问顺序**。
-3. \`lookup_engineering_knowledge\`：查询专业解释依据、型号/材料/润滑/游隙/配合资料；区分模型一般知识与可追溯的工程数值。
-4. \`recommend_engineering_config\`：读取当前受信设计任务，按经审核的工程规则筛选材料/保持架、润滑或游隙/配合组合，生成**待确认提案**。
-5. \`finalize_design_brief\`：检查用户层需求是否完整和一致，并返回/导出版本化 DesignBrief、未决项及交付状态。
+1. `update_design_brief`：唯一受信写入，保存/修改用户明确提供的参数或接受已展示的推荐。
+2. `get_design_status`：**简单状态查询**，只读当前已知、缺失、待确认、冲突；**不替模型决定提问顺序**。
+3. `lookup_engineering_knowledge`：查询专业解释依据、型号/材料/润滑/游隙/配合资料；区分模型一般知识与可追溯的工程数值。
+4. `recommend_engineering_config`：读取当前受信设计任务，按经审核的工程规则筛选材料/保持架、润滑或游隙/配合组合，生成**待确认提案**。
+5. `finalize_design_brief`：检查用户层需求是否完整和一致，并返回/导出版本化 DesignBrief、未决项及交付状态。
 
-**不设置**：独立 \`confirm_recommendation\`（并入工具①）、\`check_solver_compatibility\`（用户决定 V1 暂不设）、\`question_planner\`、独立搜索 Agent、求解器运行工具和 CAD 工具。
+**不设置**：独立 `confirm_recommendation`（并入工具①）、`check_solver_compatibility`（用户决定 V1 暂不设）、`question_planner`、独立搜索 Agent、求解器运行工具和 CAD 工具。
 
 **本阶段不做**：Dw/Z/Dpw/fi/fo 的优化、RoBAS EXE 求解、CAD、多轴承类型、多工况设计、自动工程批准。PR-00 已记录 43 条 DATA / 324 字段，但工程协议冻结仍 **BLOCKED**。
 
@@ -39,7 +39,7 @@
 
 ## 2. 系统架构
 
-\`\`\`text
+```text
 用户消息 + session_id
        │
        ▼
@@ -56,21 +56,21 @@ Conversation Agent（一个 LLM，ReAct 决策循环）
        └──── 工具结果 / 新状态摘要 ◄──────┘
        │
        └── 决定回复用户 → 保存回合记录 → END
-\`\`\`
+```
 
 **背后的普通服务，不额外包装为 Agent：**
-- \`DesignBriefStore\`：单一受信写入、版本/幂等、用户证据核实、用户已确认值与推荐提案分开管理；
-- \`RequirementChecker\`：按 V1 参数目录、条件必需项和基本约束生成简洁状态及缺项；
-- \`KnowledgeRepository\`：结构化型号/材料/润滑/规则/审核配置，只读版本化数据；
-- \`RecommendationService\`：规则筛选、适用性检查、提案建立；
-- \`FinalizationService\`：需求完成性和交付版本检查；
-- \`RoBASAdapter\`：**PR-06 后续实现**，不纳入当前 ReAct 工具五的判定责任。
+- `DesignBriefStore`：单一受信写入、版本/幂等、用户证据核实、用户已确认值与推荐提案分开管理；
+- `RequirementChecker`：按 V1 参数目录、条件必需项和基本约束生成简洁状态及缺项；
+- `KnowledgeRepository`：结构化型号/材料/润滑/规则/审核配置，只读版本化数据；
+- `RecommendationService`：规则筛选、适用性检查、提案建立；
+- `FinalizationService`：需求完成性和交付版本检查；
+- `RoBASAdapter`：**PR-06 后续实现**，不纳入当前 ReAct 工具五的判定责任。
 
 建议 Python 3.11+、Pydantic、单进程、SQLite 存业务数据，LLM 支持 tool calling。编排用最小 LangGraph/等价原生 agent loop；选库前锁定实际依赖版本，不为了 ReAct 名称而新增 Supervisor、自定义 planning graph 或多个状态副本。
 
 ## 3. 一轮执行和 ReAct 循环——取代旧固定五步骤
 
-\`\`\`text
+```text
 START / 用户新消息
   ↓
 加载 session 对应 DesignBrief、最近对话、待确认提案及状态摘要
@@ -84,7 +84,7 @@ Conversation Agent (LLM)
                                    更新上下文与状态
                                          │
                                          └──── 回到同一个 Agent (LLM)
-\`\`\`
+```
 
 **模型在单轮内可以反复决定下一步行动，但不能无限循环。** 每个用户消息完成后，必须把交互控制权还给用户；不能在没有用户消息时自行确认设计值。建议初期每轮最多约 5–6 次业务工具调用（可配置、需真实测试调整），限制重复同参数调用、超过预算后可靠停止。可根据使用情况再设模型调用上限/超时和只读补查限制。
 
@@ -96,22 +96,22 @@ Conversation Agent (LLM)
 
 **建议最小图**：
 
-\`\`\`text
+```text
 prepare_context → agent ──(tool_calls?)──► guarded_tools ──► agent
                      └──(response)──► finalize_response → END
-\`\`\`
+```
 
-\`prepare_context\` 与 \`finalize_response\` 可用普通应用函数，不强制做图节点。用户确认与提交操作在普通对话回合完成，不使用复杂的长时间暂停/恢复机制；必要的会话持久化和业务持久化分开。
+`prepare_context` 与 `finalize_response` 可用普通应用函数，不强制做图节点。用户确认与提交操作在普通对话回合完成，不使用复杂的长时间暂停/恢复机制；必要的会话持久化和业务持久化分开。
 
 ## 4. 五个工具：输入输出、权限、失败条件
 
-### 4.1 工具① \`update_design_brief\`（唯一写入）
+### 4.1 工具① `update_design_brief`（唯一写入）
 
 用途：批量保存用户明确事实、修订用户事实、接受以前已经展示且当前仍有效的推荐提案。不再有独立确认工具。
 
 建议 schema：
 
-\`\`\`json
+```json
 {
   "operation": "set | replace | accept_proposal",
   "changes": [
@@ -120,21 +120,21 @@ prepare_context → agent ──(tool_calls?)──► guarded_tools ──► a
   "proposal_id": null,
   "accepted_paths": []
 }
-\`\`\`
+```
 
-\`set/replace\` 使用 \`changes\`；\`accept_proposal\` 使用 \`proposal_id\` 和可选 \`accepted_paths\`，不混在一个危险的无约束 payload 里。模型不得传 \`confirmed=true\`、\`confirmed_by=user\`、\`source=user\` 或 \`revision\` 来伪造授权。
+`set/replace` 使用 `changes`；`accept_proposal` 使用 `proposal_id` 和可选 `accepted_paths`，不混在一个危险的无约束 payload 里。模型不得传 `confirmed=true`、`confirmed_by=user`、`source=user` 或 `revision` 来伪造授权。
 
-**服务器端隐式注入**：\`session_id\`、用户真实消息、\`message_id\`、\`request_id\`、\`expected_revision\`。这些值从经认证的会话入口获取，而不是信任模型自填。工具检查 evidence_span 在真实消息中，验证明确语义、参数目录、单位/范围、冲突、用户锁定规则、有效推荐提案；需要澄清时拒绝相应字段并说明理由。证据字符串的存在**本身不等于**用户已确认；模糊语言和推断不能直接视为精确值。
+**服务器端隐式注入**：`session_id`、用户真实消息、`message_id`、`request_id`、`expected_revision`。这些值从经认证的会话入口获取，而不是信任模型自填。工具检查 evidence_span 在真实消息中，验证明确语义、参数目录、单位/范围、冲突、用户锁定规则、有效推荐提案；需要澄清时拒绝相应字段并说明理由。证据字符串的存在**本身不等于**用户已确认；模糊语言和推断不能直接视为精确值。
 
 提交采用单次原子写入、幂等 request_id；有冲突时不得悄悄覆盖。仅当实际发生已接受的有效状态变更时 revision 增加。一次消息可批量更新多个字段，不应每个字段单独调用一次工具。
 
-返回：\`applied_changes\`、\`rejected_changes\`、\`revision\`、\`invalidated_dependent_proposals\`、简洁 \`design_status\`。如用户修改转速，不自动换材料；只对旧材料推荐的适用性标记待核查。
+返回：`applied_changes`、`rejected_changes`、`revision`、`invalidated_dependent_proposals`、简洁 `design_status`。如用户修改转速，不自动换材料；只对旧材料推荐的适用性标记待核查。
 
-### 4.2 工具② \`get_design_status\`（简单只读）
+### 4.2 工具② `get_design_status`（简单只读）
 
 **职责只限于客观状态，不替模型规划问题。**
 
-\`\`\`json
+```json
 {
   "known": {
     "dimensions.d_mm": 25,
@@ -154,22 +154,22 @@ prepare_context → agent ──(tool_calls?)──► guarded_tools ──► a
   "pending_confirmation": [],
   "conflicts": []
 }
-\`\`\`
+```
 
-这是**示例状态**，不表示 d/D/B 会自动从无来源型号中补出。字段可以附简单单位/不确定性/状态，不建立复杂的「责任归属、优先级打分、预生成问题列表、处理动作」系统。已确实标记为非适用的条件项不列为 \`missing\`；近似值、上限与确定值的区别不能被扁平化隐藏。
+这是**示例状态**，不表示 d/D/B 会自动从无来源型号中补出。字段可以附简单单位/不确定性/状态，不建立复杂的「责任归属、优先级打分、预生成问题列表、处理动作」系统。已确实标记为非适用的条件项不列为 `missing`；近似值、上限与确定值的区别不能被扁平化隐藏。
 
 工具返回以后：
 - **模型负责判断问哪一个、问几个、怎么用自然语言问**；
 - 一般先处理用户当前意图，再关注关键工况和推荐前置条件，但**不是固定问卷**；
 - 用户表示不知道材料时，可调用工具④或工具③，不重复问材料名；
 - 对话历史帮助避免刚刚问过又马上重复；如果用户只想了解知识，先解释而不是强制继续填表；
-- 模型不得仅因为“自己觉得不重要”便把 \`missing\` 从检查器中删掉。
+- 模型不得仅因为“自己觉得不重要”便把 `missing` 从检查器中删掉。
 
 工具①更新成功后已经附精简状态。用户单纯要求查看进度，或 LLM 真正需要刷新状态时，才主动调用工具②。
 
-### 4.3 工具③ \`lookup_engineering_knowledge\`（只读知识）
+### 4.3 工具③ `lookup_engineering_knowledge`（只读知识）
 
-建议输入 \`{ "topic": "clearance | fit | bearing_model | material | lubrication | terminology", "query": "...", "context_revision": 8 }\`。返回 \`summary\`、\`facts[]\`、\`source_refs[]\`、\`applicability\`、\`limitations\`、\`evidence_level\`，无结果明确 \`NOT_FOUND/UNVERIFIED\`。
+建议输入 `{ "topic": "clearance | fit | bearing_model | material | lubrication | terminology", "query": "...", "context_revision": 8 }`。返回 `summary`、`facts[]`、`source_refs[]`、`applicability`、`limitations`、`evidence_level`，无结果明确 `NOT_FOUND/UNVERIFIED`。
 
 知识来源按证据强度分层：
 1. **模型内在知识**：理解用户问题、解释公认的通用概念、组织语言，不作为未经核验的具体材料物性/公差/标准数值来源；
@@ -178,18 +178,18 @@ prepare_context → agent ──(tool_calls?)──► guarded_tools ──► a
 
 V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问“CN 与 C3 的含义”可以根据已知知识先解释；问“本尺寸游隙具体数值范围”必须查可追溯依据。没有证据时直接告知，不填造数字。
 
-### 4.4 工具④ \`recommend_engineering_config\`（筛选、建立提案）
+### 4.4 工具④ `recommend_engineering_config`（筛选、建立提案）
 
 建议输入：
-\`\`\`json
+```json
 {"config_type":"materials_and_cage | lubrication | clearance_and_fits","design_revision":8}
-\`\`\`
-工具**自己读取当前受信 DesignBrief**，不让模型重复传 d/D/B/转速等工况，以免传旧值。若 \`design_revision\` 不匹配当前版本，拒绝创建旧工况提案。
+```
+工具**自己读取当前受信 DesignBrief**，不让模型重复传 d/D/B/转速等工况，以免传旧值。若 `design_revision` 不匹配当前版本，拒绝创建旧工况提案。
 
 规则：检查推荐所需前提 → 查询有限的**已审核**候选组合 → 校验已知适用条件、来源及必要属性 → 形成少量备选 → 返回证据和限制。**工具内部使用工具③底层同一数据仓/规则，不要求模型另行先调工具③。**
 
 返回：
-\`\`\`json
+```json
 {
   "status": "PROPOSAL_READY",
   "proposal_id": "material-A",
@@ -200,20 +200,20 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
   "limitations": [],
   "review_status": "REVIEWED"
 }
-\`\`\`
-若缺少前置条件，则返回 \`NEED_INPUT\` 与缺哪些条件；无审核数据返回 \`NO_VERIFIED_CONFIGURATION\`；当前 RoBAS 模型兼容性尚未证明的候选**不得宣称可运行**。在 PR-04 不单独开发 \`check_solver_compatibility\` 工具：推荐适用性筛选只检查当前**有证据的**条件，底层模型未知保持 UNKNOWN，不假装已验证。
+```
+若缺少前置条件，则返回 `NEED_INPUT` 与缺哪些条件；无审核数据返回 `NO_VERIFIED_CONFIGURATION`；当前 RoBAS 模型兼容性尚未证明的候选**不得宣称可运行**。在 PR-04 不单独开发 `check_solver_compatibility` 工具：推荐适用性筛选只检查当前**有证据的**条件，底层模型未知保持 UNKNOWN，不假装已验证。
 
 推荐是一个 **proposal**，不是 DesignBrief 中的用户已确认值。推荐可能同时包含材料、钢球、保持架材料；允许用户整套或部分接受。模型负责解释推荐，不得创造没有返回的工程数字或冒充“最优方案”。
 
-### 4.5 工具⑤ \`finalize_design_brief\`（最终检查与导出）
+### 4.5 工具⑤ `finalize_design_brief`（最终检查与导出）
 
 输入：
-\`\`\`json
+```json
 {"mode":"check | export","expected_revision":8}
-\`\`\`
-\`check\` 不修改业务状态，只报告设计需求是否完整；\`export\` 导出**指定修订版本**的需求文档（完整或标记为草案）。若用户希望将整个 Brief 标记为「已确认」，必须已经明确看过当前摘要并接受**该版本**；这项证据在受信状态层验证，不能由模型以 \`mode=export\` 代替用户同意。
+```
+`check` 不修改业务状态，只报告设计需求是否完整；`export` 导出**指定修订版本**的需求文档（完整或标记为草案）。若用户希望将整个 Brief 标记为「已确认」，必须已经明确看过当前摘要并接受**该版本**；这项证据在受信状态层验证，不能由模型以 `mode=export` 代替用户同意。
 
-\`\`\`json
+```json
 {
   "revision": 8,
   "brief_complete": false,
@@ -225,21 +225,21 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
   "deliverable": null,
   "robas_template_ready": "NOT_ASSESSED"
 }
-\`\`\`
+```
 
 检查项：d/D/B、套圈转速、真实单轴承 Fr/Fa、分析温度；需要用户确认的材料/润滑/游隙和配合；条件项与自相矛盾参数；偏好与约束记录；来源和 revision；五优化槽保留为待优化或明确锁定。
 
-**特别边界**：工具⑤是 **用户层需求完整性与交付检查**，不是当前就检查 RoBAS 324 字段的求解输入完整性。V1 暂不实现独立 Solver Compatibility 工具。未来 PR-06 的确定性 RoBASAdapter 有自己的协议 gate，只有那时经过审核才能产生 \`TEMPLATE_READY\`；工具⑤只能返回 \`robas_template_ready: NOT_ASSESSED\` 或后续接收适配器的独立结果，**不得因 brief_complete=true 自称 DATA 可运行**。
+**特别边界**：工具⑤是 **用户层需求完整性与交付检查**，不是当前就检查 RoBAS 324 字段的求解输入完整性。V1 暂不实现独立 Solver Compatibility 工具。未来 PR-06 的确定性 RoBASAdapter 有自己的协议 gate，只有那时经过审核才能产生 `TEMPLATE_READY`；工具⑤只能返回 `robas_template_ready: NOT_ASSESSED` 或后续接收适配器的独立结果，**不得因 brief_complete=true 自称 DATA 可运行**。
 
-模式分支：用户随时能导出标记为 INCOMPLETE 的草案；只有 \`brief_complete=true\` 且没有阻断时才允许作为完成版需求导出。需要保存确认摘要、版本和生成文件/内容的可追溯 ID，不能从不匹配 revision 的旧内容导出。
+模式分支：用户随时能导出标记为 INCOMPLETE 的草案；只有 `brief_complete=true` 且没有阻断时才允许作为完成版需求导出。需要保存确认摘要、版本和生成文件/内容的可追溯 ID，不能从不匹配 revision 的旧内容导出。
 
 ## 5. Agent 如何决定「下一个问什么、怎么问」
 
 这不设专门工具，也没有五动作硬路由。模型可根据：
 - 当前用户明确意图：直接回答其问题、优先处理修改或推荐请求；
-- \`get_design_status.missing\`：哪些**客观必需项**尚未明确；
+- `get_design_status.missing`：哪些**客观必需项**尚未明确；
 - 当前 DesignBrief 的已知值与近似值、范围、冲突；
-- 专业推荐的已知前置条件与工具返回的 \`NEED_INPUT\`；
+- 专业推荐的已知前置条件与工具返回的 `NEED_INPUT`；
 - 会话历史：用户是否已回答、已表示不知道、暂不想回答；
 - 交互负担：优先问 1–2 组相关问题，不每次逐项点名。
 
@@ -252,10 +252,10 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
 ## 6. DesignBrief 与状态管理
 
 建议七个用户层分组：
-\`bearing\`、\`dimensions\`、\`operating\`、\`engineering\`、\`requirements\`、\`optimization_slots\`、\`solver_context\`。最后一组只放模式和审核身份/未来映射信息，不让未验证 profile 混入用户确认值。
+`bearing`、`dimensions`、`operating`、`engineering`、`requirements`、`optimization_slots`、`solver_context`。最后一组只放模式和审核身份/未来映射信息，不让未验证 profile 混入用户确认值。
 
-\`ParameterValue\` 最小结构：
-\`\`\`json
+`ParameterValue` 最小结构：
+```json
 {
   "value": 18000,
   "unit": "rpm",
@@ -264,26 +264,26 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
   "precision": "exact",
   "note": null
 }
-\`\`\`
+```
 
-- 业务确认只有 \`confirmed\`/\`unconfirmed\`；缺失 \`value=null\`；\`precision\` 可为 \`exact/approximate/range/unknown\`。模型不得写 \`confirmed\`。
+- 业务确认只有 `confirmed`/`unconfirmed`；缺失 `value=null`；`precision` 可为 `exact/approximate/range/unknown`。模型不得写 `confirmed`。
 - “无轴向载荷”可确认 Fa=0；未提 Fa 仍为 null。“约 15000 rpm”保留近似性，不直接当最终固定工况；尺寸上限与确定尺寸不同。
 - 来源必须来自真实用户消息、受信资源/公式，不由 LLM 随意填写。
 - 修改 d/D/B、转速、载荷、温度等后，失效相关派生结果和曾经推荐包的适用性；已确认的用户原始选择**不擅自覆盖**，而是报告原依据待核查。
-- \`PendingProposals\` 独立于 DesignBrief 的 confirmed 值；只存提案 ID、内容、数据源、依赖 revision、展示证据、适用条件、过期信息。
-- \`ConversationHistory\` 记录用户消息、模型输出、工具调用事实；**不是第二个可信参数真相来源**。
-- \`expected_revision\` 和 \`request_id\` 防止并发覆盖、重复确认、工具调用重放。新用户修改导致完整 Brief 的先前接受版本失效，必须针对新 revision 重新接受。
+- `PendingProposals` 独立于 DesignBrief 的 confirmed 值；只存提案 ID、内容、数据源、依赖 revision、展示证据、适用条件、过期信息。
+- `ConversationHistory` 记录用户消息、模型输出、工具调用事实；**不是第二个可信参数真相来源**。
+- `expected_revision` 和 `request_id` 防止并发覆盖、重复确认、工具调用重放。新用户修改导致完整 Brief 的先前接受版本失效，必须针对新 revision 重新接受。
 
 会话/API 建议：
-\`\`\`json
+```json
 {
   "session_id":"session-001",
   "request_id":"turn-0005",
   "expected_revision":4,
   "message":"转速改成18000转，我想了解脂润滑"
 }
-\`\`\`
-返回 \`reply\`、\`revision\`、本轮实际 \`applied_changes\`、精简 \`design_status\`、\`tool_trace_summary\`（工具名称/状态/耗时/来源，不含模型私有推理）、\`deliverable\`（若有）。模型不能先对用户声称写入成功再去调用工具写入。
+```
+返回 `reply`、`revision`、本轮实际 `applied_changes`、精简 `design_status`、`tool_trace_summary`（工具名称/状态/耗时/来源，不含模型私有推理）、`deliverable`（若有）。模型不能先对用户声称写入成功再去调用工具写入。
 
 ## 7. 工程知识与推荐的证据原则
 
@@ -303,15 +303,15 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
 
 **产物 B — Complete DesignBrief**：工具⑤确认用户层必要字段和工程配置已明确，并记录当前版本的整体确认；不代表计算可执行。
 
-**产物 C — RoBASInputTemplate（未来 PR-06）**：43/324 位置级输入模板，除 Dw/Z/Dpw/fi/fo 及依赖项外，其他字段的来源及 profile 适用性经过独立审查；\`TEMPLATE_READY\` 是**未来适配器**给出的独立结果。
+**产物 C — RoBASInputTemplate（未来 PR-06）**：43/324 位置级输入模板，除 Dw/Z/Dpw/fi/fo 及依赖项外，其他字段的来源及 profile 适用性经过独立审查；`TEMPLATE_READY` 是**未来适配器**给出的独立结果。
 
 **产物 D — Runnable DATA.txt（本阶段不做）**：未来五变量已经给定、其派生量复算、DATA 协议通过后的产物；运行成功/收敛/工程合格还需独立证据。
 
-不要把 \`brief_complete\`、\`brief_user_accepted\`、\`TEMPLATE_READY\`、\`RUNNABLE_READY\` 合并成单个布尔值。V1 \`finalize_design_brief\` 不暴露 RoBAS 求解能力。
+不要把 `brief_complete`、`brief_user_accepted`、`TEMPLATE_READY`、`RUNNABLE_READY` 合并成单个布尔值。V1 `finalize_design_brief` 不暴露 RoBAS 求解能力。
 
 ## 9. 最小文件职责建议（不按名字强制拆空壳）
 
-\`\`\`text
+```text
 src/bearing_agent_system/
   api.py              # 会话入口与结果
   conversation.py     # 单Agent有界ReAct循环/调用中间件
@@ -331,7 +331,7 @@ tests/
   test_recommendation.py
   test_finalization.py
   test_real_llm_dialogue.py
-\`\`\`
+```
 
 这些是**职责建议**而非项目必须拥有的文件数量；PR-01 不创建未来工具的空文件。只有实际实现代码后才写运行命令和真实 LLM 测试结果。RoBAS 适配器在 PR-06 开发且不作为第六个对话工具。
 
