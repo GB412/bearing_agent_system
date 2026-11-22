@@ -217,7 +217,7 @@ def test_tool_budget_and_repeat_guard(environment):
     service, _ = environment
     tools = TurnTools(service=service, session_id="s",
                       message_id="m", user_message="内径25mm", max_calls=2)
-    update, status = tools.tools()
+    update, status = tools.tools()[:2]  # PR-03 adds a third read-only tool.
     first = update.invoke({"operation": "set", "changes": [
         param("dimensions.d_mm", 25, "内径25mm", "mm")
     ]})
