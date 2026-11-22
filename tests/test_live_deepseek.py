@@ -6,8 +6,8 @@ import os
 
 import pytest
 
-from examples.pr02_live_eval import CASES, evaluate, grade
 from bearing_agent_system.models import DesignBrief, ParameterValue, Source
+from examples.pr02_live_eval import CASES, evaluate, grade
 
 
 pytestmark = pytest.mark.live
