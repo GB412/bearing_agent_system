@@ -11,11 +11,11 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 
 from bearing_agent_system import DesignBriefService, SQLiteDesignBriefStore
 from bearing_agent_system.agent_tools import TurnTools
-from bearing_agent_system.parameter_catalog import FIELDS
 from bearing_agent_system.conversation import ConversationAgent
 from bearing_agent_system.conversation_store import ConversationStore
 from bearing_agent_system.llm_client import make_deepseek_model
 from bearing_agent_system.models import DesignBrief, ParameterValue, Source
+from bearing_agent_system.parameter_catalog import FIELDS
 from bearing_agent_system.reply_guard import reconcile_writes, trusted_summary
 from examples.pr02_live_eval import grade
 
