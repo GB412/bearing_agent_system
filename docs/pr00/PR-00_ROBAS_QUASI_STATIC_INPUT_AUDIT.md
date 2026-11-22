@@ -3,7 +3,7 @@
 - 日期：2026-11-20（Asia/Shanghai）；GitHub PR **#1**，项目阶段 **PR-00**，两者分别编号。
 - 分支：`docs/pr-00-robas-quasi-static-input-audit`；业务基线 `02861ea09e77906f4360ed1e3e9c7268a0c9ea1f`。审计工件已提交 2b286f1c671cc581fb0027544d9b61db6554624b；提交引用在 PROJECT_CHANGELOG 追加。
 - 结论：43 记录/324 字段的源码及资源盘点完成；工程输入协议冻结 **BLOCKED**，等待人工验收。没有 Agent/优化实现，没有修改原版 DATA/SQLite/EXE 或 Bearing_CAD 架构，没有开始 PR-01。
-- [逐字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)、[全表结构](DATABASE_SCHEMA_AUDIT.md)、[UI 观察](UI_OBSERVATIONS.md)、[验证结果](VALIDATION.md)。
+- [逐字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)、[全表结构](DATABASE_SCHEMA_AUDIT.md)。
 
 ## 1. 方法和证据边界
 
@@ -11,7 +11,7 @@
 
 源码根 `D:/RotorStudio/RoBAS`；资源根 `D:/RotorStudio/ui_rotorstudio-9857bcc7afce658be15dfd2b559a55cb12b55bbd/NetLib/RoBAS_Resources`；Python 根 `D:/RotorStudio/Bearing_CAD/Bearing_CAD`。JSON inventory 保存全部 101 个实际 C# 文件、审查的 Python 文件、SQLite/CSV/EXE/DATA 路径、字节数及 SHA-256。未将商业二进制/数据库完整复制进 Git。
 
-原版 UI 实际进程为 `C:/RollBearing/RollBearing.exe`，显示 RollBearing；源代码 AssemblyVersion=1.0.0.0。资源求解器 RoBAS_v2.exe SHA `0449dbade9f97da768961e7cd8af3277b8a6fbf2bf8a2b2c9c23784caac11829`。本机 UI 二进制与源码是否同一构建、是否确切等于“RoBAS 8.11” **BLOCKED**，不能用文件名证明版本。
+原版 UI 曾在 Windows 上进行只读查看（仅观察工况、润滑、材料和 solver 界面，没有保存同次输入、生成 DATA 或截图）。原版 UI 实际进程为 `C:/RollBearing/RollBearing.exe`，显示 RollBearing；源代码 AssemblyVersion=1.0.0.0。资源求解器 RoBAS_v2.exe SHA `0449dbade9f97da768961e7cd8af3277b8a6fbf2bf8a2b2c9c23784caac11829`。本机 UI 二进制与源码是否同一构建、是否确切等于“RoBAS 8.11” **BLOCKED**，不能用文件名证明版本。
 
 静态源码提取不是执行 C#，JSON 的 source_references 是词法引用定位，可能包含注释/其他轴承/动力分支；不能单凭引用推断运行依赖。矩阵 SetAnalysisValue 限定 DGB 方法，getter/setter 与默认表达式均留证。RoBAS_v2 求解器计算核源码未提供，每个字段在求解核的实际读取/忽略条件仍 BLOCKED。
 
@@ -95,4 +95,4 @@ TEMPLATE_READY必须：43记录/324字段身份与顺序固定；非优化必需
 |B09|当前Python API逐字段确认/来源不完备|NOT_IMPLEMENTED；后续PR范围待本次人工验收|
 |B10|API pytest缺cadquery；当前环境为Python3.14|BLOCKED：完整CAD测试环境；不安装/重构本次范围外依赖|
 
-验收自审：43/324完整性、每字段源码/初始化/属性/案例定位、数据库实际结构与来源、Python覆盖范围、确认gate已记录。单位/分支/五变量有效写入链/真实目标案例仍有上述阻断，故不勾选“工程协议冻结/原版UI同次生成闭环已通过”。历史审计工件测试与已有测试的当时结果见 VALIDATION；原始证据生成工具已从本仓库清理，测试不能就地重跑。PR-00完成度为UNIT_TESTED（审计工件一致性）；完整工程输入链NOT_IMPLEMENTED；REAL_ENV_VERIFIED仅限本机UI只读观察与数据只读检查，不扩展至求解；ENGINEERING_REVIEWED未达到。不得合并，不开始PR-01，等待人工验收和阻断项处理决定。
+验收自审：43/324完整性、每字段源码/初始化/属性/案例定位、数据库实际结构与来源、Python覆盖范围、确认gate已记录。单位/分支/五变量有效写入链/真实目标案例仍有上述阻断，故不勾选“工程协议冻结/原版UI同次生成闭环已通过”。历史审计工具检查 14 passed，Bearing_CAD 球轴承输入相关单元测试 23 passed；完整 API 测试因缺少 cadquery 无法收集。本轮无 EXE 实测；原始一次性采集工具/工件已从本仓库清理，测试记录仅供追溯。PR-00完成度为UNIT_TESTED（审计工件一致性）；完整工程输入链NOT_IMPLEMENTED；REAL_ENV_VERIFIED仅限本机UI只读观察与数据只读检查，不扩展至求解；ENGINEERING_REVIEWED未达到。不得合并，不开始PR-01，等待人工验收和阻断项处理决定。
