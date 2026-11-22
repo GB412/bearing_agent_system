@@ -13,9 +13,9 @@
 
 ## 自动化验证
 
-- `pytest -q tests`：实际结果以 PR 审查时输出为准；测试涵盖空任务、批量更新、更新回滚、来源、零值、估计、单位、约束、游隙、Z 锁定、重启持久化、非法几何和未知字段。
+- **本地实测**：`PYTHONPATH=src python -m pytest -q tests` → **49 passed (0.42s)**，使用 Python 3.13.5 / Pydantic 2.13.5 / pytest 9.0.2。覆盖空任务、批量更新、更新回滚、来源、零值、估计、单位、约束、游隙、Z 锁定、重启持久化、非法几何和未知字段。
 - `python -m examples.pr01_demo`（或在仓库根目录运行 `python examples/pr01_demo.py`）：显示写入结果、缺项、重新打开 SQLite 后的 Brief。
-- `python -m compileall -q src tests`：基本语法检查。
+- `python -m compileall -q src tests`：本地运行通过。\n- `python -m pip install --no-index --no-deps --no-build-isolation -e .`：在已有依赖环境下本地可编辑安装通过。
 
 ## 明确限制及后续 PR
 
