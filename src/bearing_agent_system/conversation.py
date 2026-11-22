@@ -138,9 +138,7 @@ class ConversationAgent:
                 stats = _usage(emitted)
                 # A model answer is not a write receipt. Allow one repair with
                 # exactly the same trusted turn and remaining tool-call budget.
-                if (needs_write_repair(
-                    answer, user_message, turn_tools.successful_paths
-                ) and not turn_tools.failed_writes
+                if (needs_write_repair(answer, turn_tools.trace)
                         and len(turn_tools.trace) < self.max_tool_calls):
                     repair = output["messages"] + [{
                         "role": "user",
@@ -164,9 +162,8 @@ class ConversationAgent:
                 if not answer:
                     answer = "本轮未生成有效回复。当前已保存状态可通过 /status 查看。"
                 answer = verified_reply(
-                    answer, user_message,
+                    answer, turn_tools.trace,
                     self.service.get_design_status(session_id).model_dump(mode="json"),
-                    turn_tools.successful_paths, turn_tools.failed_writes,
                 )
                 error_type = None
             except Exception as exc:
