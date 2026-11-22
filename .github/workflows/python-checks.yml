@@ -1,4 +1,4 @@
-name: DGB PR-01 and PR-02 Python checks
+name: DGB Agent Python checks
 on:
   pull_request:
     paths:
@@ -8,7 +8,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/python-checks.yml'
   push:
-    branches: [feature/pr01-designbrief-state, feature/pr02-deepseek-react]
+    branches: [feature/pr01-designbrief-state, feature/pr02-deepseek-react, feature/pr03-engineering-knowledge]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,3 +23,4 @@ jobs:
       - run: python examples/pr01_demo.py
       - run: python -m bearing_agent_system.chat_cli --help
       - run: python examples/pr02_live_eval.py --help
+      - run: python examples/pr03_live_eval.py --help
