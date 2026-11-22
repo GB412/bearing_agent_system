@@ -68,4 +68,4 @@ python -m bearing_agent_system.chat_cli --model deepseek-flash
 
 ## PR-03：有来源的工程知识查询（开发中）
 
-第三个 Agent 工具 `lookup_engineering_knowledge` 只读本地少量制造商资料，返回出处、适用条件和审核状态；未找到资料不编造数值。当前仅覆盖6206主要外形尺寸与CN/C3概念，不提供专业推荐或RoBAS计算。详见 [PR-03 实施说明](docs/pr03/IMPLEMENTATION.md)。
+第三个 Agent 工具 `lookup_engineering_knowledge` 只读本地少量制造商资料，返回出处、适用条件和审核状态；未找到资料不编造数值。当前仅整理6206主要外形尺寸、CN/C3概念、配合与脂润滑基础说明；具体材料物性、游隙数值、公差表仍不可用，不提供专业推荐或RoBAS计算。详见 [PR-03 实施说明](docs/pr03/IMPLEMENTATION.md)。
