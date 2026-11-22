@@ -55,3 +55,76 @@ python -m bearing_agent_system.chat_cli --model deepseek-flash
 
 离线 scripted-model 测试只能验证代码调用链及确定性行为；**真实 DeepSeek 是否会在需要时
 自主调用第三工具，仍需本地有效 API 凭据复测**。本 PR 不调用 RoBAS EXE。
+
+
+## 第二轮完善：防止相关知识被误当作充分证据
+
+这轮补充三个关键边界，仍然只使用小型本地目录和单个 Conversation Agent：
+
+1. **匹配与答案覆盖程度分开**：`FOUND` 表示目录确实有可回答的事实；
+   `NOT_FOUND` 表示无匹配资料；新增 `INSUFFICIENT_EVIDENCE` 表示有相关出处，
+   但不足以给出用户要求的具体公差、游隙数值、黏度、载荷、型号变体信息。
+   `INSUFFICIENT_EVIDENCE` 的 `results` 为空，背景来源单独放在
+   `related_sources`，不得将其当作已回答的工程数据。
+2. **范围收敛**：型号 `6206` 不得错误匹配 `62060` 或 `16206`；
+   `6206-2RS` 不能自动继承只有开式 `6206` 的证据。CN/C3概念仍可查，
+   但具体微米游隙范围不能从等级名称推出。k6/H7的具体配合公差、
+   润滑脂牌号或黏度，以及6206的额定动载荷，都必须另有明确资料。
+3. **来源跟踪**：每次知识工具调用的 `/trace` 记录结果的
+   `knowledge_status`、`knowledge_ids`、`knowledge_source_urls`；
+   不记录完整的模型自由查询作为所谓事实。目录初始化检查记录 ID 唯一、
+   HTTPS 出处、数值事实单位、审核状态及适用范围，避免误将不完整记录对外暴露。
+
+这些是**小目录的保守覆盖检查**，不是一般自然语言语义理解系统。
+中文复杂说法仍可能逃过关键词判定；必须结合真实 DeepSeek 测试和专业人工复核，
+不能宣称只靠正则保证工程数值绝不幻觉。
+
+## 真实 DeepSeek API 专项验收（显式启用）
+
+```powershell
+conda activate bearing-agent
+cd "D:\RotorStudio\bearing_agent_system"
+git fetch origin
+git switch feature/pr03-engineering-knowledge
+git pull --ff-only origin feature/pr03-engineering-knowledge
+python -m pip install -e ".[dev]"
+
+# 不需要 API Key 的全套确定性回归：
+python -m pytest -q tests -m "not live"
+ruff check .
+python examples/pr03_live_eval.py --help
+
+# 如有 DeepSeek API Key，仅在当前终端安全输入：
+$secure = Read-Host "DeepSeek API Key" -AsSecureString
+$env:DEEPSEEK_API_KEY = [System.Net.NetworkCredential]::new("", $secure).Password
+Remove-Variable secure
+$env:DEEPSEEK_THINKING = "disabled"
+
+# 真实模型：先 4 案例，再 8 案例（有付费 API 费用）：
+python examples/pr03_live_eval.py --model deepseek-flash --max-cases 4
+python examples/pr03_live_eval.py --model deepseek-flash --max-cases 8
+
+# 复杂模型对照，可选：
+python examples/pr03_live_eval.py --model deepseek-v4-pro --max-cases 8 --report artifacts/pr03_live/pro_results.json
+```
+
+默认报告写入 `artifacts/pr03_live/knowledge_results.json`，此路径被 Git 忽略，
+包含用户测试句、模型自然语言回复、工具摘要、来源 URL、Token 使用与失败原因；
+**不得含 API Key**，也不要将真实个人或商业机密对话原文公开提交。
+
+本轮真实验收案例包括 SKF 6206 主要尺寸和出处、CN/C3 概念、CN/C3 具体游隙区间
+不足、k6/H7 公差不足、GCr15 导热率缺失、脂润滑黏度证据不足、
+SKF 6206-2RS 变体不能由 6206 自动证明，以及通用脂润滑特性。
+这些案例要求知识查询**只读**；要求来源链接必须是工具实际返回的 URL。
+
+离线 scripted 测试和测试评分器只能验证代码逻辑，不能代替真实模型调用；
+**在无密钥情况下，真实 DeepSeek 验收状态仍为未执行**。
+真实报告中的结构化校验也只是基础检查；仍需人工核对答复内容是否恰当、
+是否发生跨厂商/型号的错误套用及是否含无出处的推断。
+
+## PR-03 验收边界
+
+不得新增专业参数默认值或在知识查询中直接修改 DesignBrief，
+不新增 Agent，不开发 RAG 或 PR-04 的配置推荐/提案接受，
+不引入 RoBAS 资源或声称源记录已通过工程人员审核。
+GitHub CI/本地回归通过后，PR 仍保持 Draft，等待实测和用户批准后再合并。
