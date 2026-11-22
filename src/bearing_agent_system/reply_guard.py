@@ -53,10 +53,16 @@ VALUES = {"grease": "脂润滑", "oil": "油润滑", "other": "其他"}
 UNITS = {"degC": "℃"}
 
 
+def _summary_requested(user_message: str) -> bool:
+    explicit = ("汇总", "总结", "清单", "整理", "查看", "进度", "进展", "列出")
+    if any(word in user_message for word in explicit):
+        return True
+    return (any(mark in user_message for mark in ("？", "?"))
+            and any(word in user_message for word in SUMMARY_INTENTS))
+
+
 def summary_intent(user_message: str, answer: str = "") -> bool:
-    return any(word in user_message for word in SUMMARY_INTENTS) or bool(
-        SUMMARY_ANSWER.search(answer)
-    )
+    return _summary_requested(user_message) or bool(SUMMARY_ANSWER.search(answer))
 
 
 def needs_write_repair(
@@ -65,7 +71,7 @@ def needs_write_repair(
     applied_paths: list[str],
 ) -> bool:
     """Request a single repair only for an unbacked NEW-write claim."""
-    if applied_paths or summary_intent(user_message):
+    if applied_paths or _summary_requested(user_message):
         return False
     return bool(WRITE_CLAIM.search(answer))
 
