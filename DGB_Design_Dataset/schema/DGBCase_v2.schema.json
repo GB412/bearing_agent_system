@@ -1,0 +1,700 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/DGBCase_v2.schema.json",
+  "title": "DGB Design Dataset V2, design_case and user_request",
+  "description": "Structural validation only; RoBAS equality, user-text alignment, and cross-file constraints validated separately.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "record_type": {
+          "const": "design_case"
+        },
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bearing": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "DGB"
+            },
+            "application": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reference_model": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "application",
+            "reference_model"
+          ],
+          "additionalProperties": false
+        },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "d_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "D_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "B_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "d_mm",
+            "D_mm",
+            "B_mm"
+          ],
+          "additionalProperties": false
+        },
+        "operating": {
+          "type": "object",
+          "properties": {
+            "inner_speed_rpm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "outer_speed_rpm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "radial_load_n": {
+              "type": "number",
+              "minimum": 0
+            },
+            "axial_load_n": {
+              "type": "number",
+              "minimum": 0
+            },
+            "temperature_c": {
+              "type": "number"
+            },
+            "rotation_direction": {
+              "type": "string",
+              "minLength": 1
+            },
+            "radial_load_direction": {
+              "type": "string",
+              "minLength": 1
+            },
+            "axial_load_direction": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "inner_speed_rpm",
+            "outer_speed_rpm",
+            "radial_load_n",
+            "axial_load_n",
+            "temperature_c",
+            "rotation_direction",
+            "radial_load_direction",
+            "axial_load_direction"
+          ],
+          "additionalProperties": false
+        },
+        "engineering": {
+          "type": "object",
+          "properties": {
+            "inner_ring_material": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outer_ring_material": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ball_material": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cage_type": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cage_material": {
+              "type": "string",
+              "minLength": 1
+            },
+            "lubrication_mode": {
+              "enum": [
+                "oil",
+                "grease",
+                "other"
+              ]
+            },
+            "lubricant": {
+              "type": "string",
+              "minLength": 1
+            },
+            "clearance_group": {
+              "type": "string",
+              "minLength": 1
+            },
+            "initial_radial_clearance_mm": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "shaft_fit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "housing_fit": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "inner_ring_material",
+            "outer_ring_material",
+            "ball_material",
+            "cage_type",
+            "cage_material",
+            "lubrication_mode",
+            "lubricant",
+            "clearance_group",
+            "initial_radial_clearance_mm",
+            "shaft_fit",
+            "housing_fit"
+          ],
+          "additionalProperties": false
+        },
+        "requirements": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "metric": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "operator": {
+                    "enum": [
+                      ">=",
+                      ">",
+                      "<=",
+                      "<",
+                      "=="
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "metric",
+                  "operator",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "objective": {
+              "enum": [
+                "minimize_power_loss",
+                "maximize_L10h",
+                "minimize_temperature_rise",
+                "minimize_peak_contact_pressure",
+                "maximize_radial_stiffness"
+              ]
+            },
+            "fixed_envelope": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "constraints",
+            "objective",
+            "fixed_envelope"
+          ],
+          "additionalProperties": false
+        },
+        "optimization": {
+          "type": "object",
+          "properties": {
+            "variables": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "Dw_mm",
+                  "Z",
+                  "Dpw_mm",
+                  "fi",
+                  "fo"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 1,
+              "maxItems": 5
+            },
+            "locked": {
+              "type": "object",
+              "properties": {
+                "Dw_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "Z": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "Dpw_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "fi": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "fo": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "bounds": {
+              "type": "object",
+              "properties": {
+                "Dw_mm": {
+                  "type": "object",
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "Z": {
+                  "type": "object",
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "Dpw_mm": {
+                  "type": "object",
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fi": {
+                  "type": "object",
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fo": {
+                  "type": "object",
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "variables",
+            "locked",
+            "bounds"
+          ],
+          "additionalProperties": false
+        },
+        "robas_data": {
+          "type": "object",
+          "properties": {
+            "model_record": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "d_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "D_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "B_mm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "rsmin_mm": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "model",
+                "d_mm",
+                "D_mm",
+                "B_mm",
+                "rsmin_mm"
+              ],
+              "additionalProperties": false
+            },
+            "materials": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "elastic_modulus_pa": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "density_kg_m3": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "thermal_conductivity_w_m_k": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "thermal_expansion_1_k": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "poisson_ratio": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMaximum": 0.5
+                  },
+                  "specific_heat_j_kg_k": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "csv_line": {
+                    "type": "integer",
+                    "minimum": 2
+                  }
+                },
+                "required": [
+                  "elastic_modulus_pa",
+                  "density_kg_m3",
+                  "thermal_conductivity_w_m_k",
+                  "thermal_expansion_1_k",
+                  "poisson_ratio",
+                  "specific_heat_j_kg_k",
+                  "csv_line"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "lubricants": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "density0_source_value": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "temperature_1_c": {
+                    "type": "number"
+                  },
+                  "kinematic_viscosity_1_m2_s": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "temperature_2_c": {
+                    "type": "number"
+                  },
+                  "kinematic_viscosity_2_m2_s": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "density_slope_source_value": {
+                    "type": "number"
+                  },
+                  "specific_heat0_j_kg_c": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "specific_heat_slope_source_value": {
+                    "type": "number"
+                  },
+                  "csv_line": {
+                    "type": "integer",
+                    "minimum": 2
+                  }
+                },
+                "required": [
+                  "density0_source_value",
+                  "temperature_1_c",
+                  "kinematic_viscosity_1_m2_s",
+                  "temperature_2_c",
+                  "kinematic_viscosity_2_m2_s",
+                  "density_slope_source_value",
+                  "specific_heat0_j_kg_c",
+                  "specific_heat_slope_source_value",
+                  "csv_line"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "sources": {
+              "type": "object",
+              "properties": {
+                "resource_archive_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "model": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "table": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "key_column": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "file",
+                    "sha256",
+                    "table",
+                    "key",
+                    "key_column"
+                  ],
+                  "additionalProperties": false
+                },
+                "materials": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "key_column": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "file",
+                    "sha256",
+                    "key_column"
+                  ],
+                  "additionalProperties": false
+                },
+                "lubricants": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "key_column": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "file",
+                    "sha256",
+                    "key_column"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "resource_archive_sha256",
+                "model",
+                "materials",
+                "lubricants"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "model_record",
+            "materials",
+            "lubricants",
+            "sources"
+          ],
+          "additionalProperties": false
+        },
+        "quality": {
+          "type": "object",
+          "properties": {
+            "scenario_origin": {
+              "enum": [
+                "synthetic",
+                "measured",
+                "literature"
+              ]
+            },
+            "catalog_verified": {
+              "type": "boolean"
+            },
+            "engineering_reviewed": {
+              "type": "boolean"
+            },
+            "solver_verified": {
+              "type": "boolean"
+            },
+            "note": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "scenario_origin",
+            "catalog_verified",
+            "engineering_reviewed",
+            "solver_verified",
+            "note"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "record_type",
+        "case_id",
+        "bearing",
+        "dimensions",
+        "operating",
+        "engineering",
+        "requirements",
+        "optimization",
+        "robas_data",
+        "quality"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "record_type": {
+          "const": "user_request"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "record_type",
+        "request_id",
+        "case_id",
+        "text"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

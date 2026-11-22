@@ -1,2 +1,25 @@
-﻿case_id,scenario_origin,robas_archive_sha256,model,model_exact_in_DGBData_db,model_d_D_B_mm,material_names,material_exact_in_RoBAS_csv,material_raw_values_verified,material_numeric_sanity,lubricant_name,lubricant_exact_in_RoBAS_csv,lubricant_raw_values_verified,cage_class_in_original_CSharp,clearance_group,clearance_unique_numeric_verified,fits,engineering_suitability_reviewed,robas_solver_executed,brief_complete,review_status,review_notes,dialogue_variant_count,user_provenance_check,data_validator_check,robas_source_archive_check
-DGB-0001,synthetic_scenario,d5b072f08f3a76e283d35215e91097d88a1702e6ff5f3c6675cc726d3e73b626,6205,YES,25/52/15,氮共渗轴承钢|工具钢,YES,YES,PASS_SIMPLE_RANGES_NOT_ENGINEERING_APPROVAL,VG32,YES,YES,StampingCage: YES,CN,NO_CONFLICTING_DB_TABLES,k5/H7 (synthetic user selections; not verified as RoBAS configuration),NO,NO,NO,CATALOG_MATCHED_PENDING_ENGINEERING_REVIEW,实际RoBAS目录精确匹配；u02确认d/D/B来源已修复；3条模拟对话包含普通用户及未知参数后补全。工程组合、游隙/配合、Solver Profile和真实求解仍待专业验证，不能列入工程优化数据。,3,PASS_CANONICAL_DIALOGUE_A,PASS_SCHEMA_CROSSFILE_10_NEGATIVE_TESTS,PASS_THIS_ARCHIVE_SHA_AND_SELECTED_RECORDS
+﻿case_id,application,reference_model,d_mm,D_mm,B_mm,inner_speed_rpm,outer_speed_rpm,Fr_N,Fa_N,temperature_c,objective,optimization_mode,catalog_verified,engineering_reviewed,solver_verified,review_notes
+DGB-0001,高速电机转子支承,6205,25,52,15,15000,0,300,50,60,minimize_power_loss,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0002,小型鼓风机轴承,6003,17,35,10,14000,0,180,0,55,minimize_power_loss,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0003,电动通风机电机支承,6004,20,42,12,18000,0,240,30,65,minimize_temperature_rise,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0004,循环冷却风机,6005,25,47,12,12500,0,500,0,70,minimize_power_loss,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0005,高速电主轴辅助支承,6006,30,55,13,20000,0,450,80,75,maximize_radial_stiffness,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0006,离心泵电机支承,6007,35,62,14,9000,0,1000,200,80,maximize_L10h,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0007,数控驱动电机支承,6008,40,68,15,11000,0,900,100,70,minimize_temperature_rise,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0008,轴流风机电机,6203,17,40,12,16000,0,320,40,58,minimize_power_loss,lockZ,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0009,小型工业减速器,6204,20,47,14,6000,0,1500,150,78,minimize_peak_contact_pressure,boundDw,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0010,循环泵传动端轴承,6205,25,52,15,9000,0,1100,120,72,maximize_L10h,lockZ,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0011,输送装置滚筒支承,6206,30,62,16,3000,0,2700,100,68,maximize_L10h,boundDw,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0012,工厂齿轮箱径向支承,6207,35,72,17,4500,0,3300,230,75,minimize_peak_contact_pressure,lockZ,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0013,机油输送泵支承,6208,40,80,18,5500,0,3000,0,83,minimize_power_loss,boundDw,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0014,中小型机械旋转关节,6304,20,52,15,2500,0,2200,300,50,maximize_radial_stiffness,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0015,农机传动轴支承,6305,25,62,17,1800,0,4200,150,65,maximize_L10h,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0016,工艺空气压缩机辅助支承,6306,30,72,19,7500,0,3000,250,87,minimize_power_loss,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0017,液压电机轴承,6307,35,80,21,3700,0,6500,500,92,minimize_peak_contact_pressure,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0018,小型精密仪表旋转机构,6002,15,32,9,9000,0,80,0,42,minimize_power_loss,boundCurvature,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0019,微型高速散热风扇,6001,12,28,8,25000,0,60,10,53,minimize_power_loss,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0020,制冷压缩机辅助轴承,6209,45,85,19,3500,0,5500,450,88,maximize_L10h,lockZ,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0021,通用重载传动轴支承,6210,50,90,20,2200,0,7800,0,90,minimize_power_loss,boundDw,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0022,工业搅拌机主轴支承,6308,40,90,23,1500,0,12000,900,90,maximize_L10h,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0023,轻型传送设备端部轴承,6202,15,35,11,3000,0,700,0,48,minimize_temperature_rise,lockZ,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
+DGB-0024,微型直流电机支承,6000,10,26,8,21000,0,120,15,55,minimize_power_loss,all,YES,NO,NO,固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证
