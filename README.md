@@ -57,7 +57,9 @@ PR-02 相对 PR-01 是**叠加 PR**：PR-01 未合并前，PR-02 的目标分支
 python -m pip install -e ".[dev]"
 python -m pytest -q tests -m "not live"
 ruff check .
-$env:DEEPSEEK_API_KEY = Read-Host "DeepSeek API Key"
+$secure = Read-Host "DeepSeek API Key" -AsSecureString
+$env:DEEPSEEK_API_KEY = [System.Net.NetworkCredential]::new("", $secure).Password
+Remove-Variable secure
 $env:DEEPSEEK_THINKING = "disabled"
 python -m bearing_agent_system.chat_cli --model deepseek-flash
 ```
