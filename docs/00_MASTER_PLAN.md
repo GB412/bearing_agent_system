@@ -1,10 +1,10 @@
 # 多 Agent 轴承设计系统总控规划
 
-- 文档版本：v0.3（PR-00 本机审计版，工程冻结 BLOCKED）
+- 文档版本：v0.4（Conversation Agent 五工具 ReAct 设计版；PR-00 工程冻结 BLOCKED）
 - 更新日期：2026-11-20
 - 当前开发仓库：GB412/bearing_agent_system
-- 当前阶段：PR-00 规划与 RoBAS 拟静力学输入审计
-- 状态：43记录/324字段本机审计已记录；PR-00 工程冻结 BLOCKED，待人工验收
+- 当前阶段：PR-00 输入审计 + PR #2 ReAct 架构设计评审，未开始 Agent 业务开发
+- 状态：43 记录/324 字段历史审计已记录；PR-00 工程冻结 BLOCKED；PR #2 设计更新待验收
 
 ## 1. 项目定位
 
@@ -101,42 +101,41 @@
 - 不将工作游隙等派生量当作普通用户输入，除非用户明确给出目标值或约束。
 - 不把“DATA 可以序列化”解释为“计算已收敛”或“工程设计合格”。
 
-## 5. 对话 Agent 的职责和交互原则
+## 5. 对话 Agent V1：自主 ReAct 与五工具（覆盖旧固定流程）
 
-### 5.1 一个核心对话 Agent
+最终行为设计详见 [Conversation Agent V1 架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md)。**本版以自主工具循环替换旧的「理解→更新→检查→选择动作→回复」固定五步骤，不另设独立提问规划器或 Supervisor。**
 
-用户只有一个对话入口。Agent 负责理解需求、更新任务、决定下一步提问、解释专业概念、查询知识工具、提出推荐、汇总确认。第一阶段不设置多个互相转发的专业 Agent，不建设复杂 Supervisor。
+| Agent 可见工具 | 具体职责 | 权限边界 |
+|---|---|---|
+| \`update_design_brief\` | 批量记录/修改参数，接受已展示的推荐提案 | 唯一受信参数写入；根据用户原话、revision、proposal 验证 |
+| \`get_design_status\` | 返回 known/missing/pending_confirmation/conflicts | 仅客观状态；**不返回问句规划/负责人/优先级分数** |
+| \`lookup_engineering_knowledge\` | 查询有来源的型号、材料、润滑、游隙、配合知识 | 模型通用解释可以直接说；精确工程数值需有来源 |
+| \`recommend_engineering_config\` | 在当前受信工况下筛选审核配置并生成推荐包 | 推荐只生成提案，用户接受前不能置为 confirmed |
+| \`finalize_design_brief\` | \`check/export\` 最终需求检查及版本化交付 | 只判断用户层 Brief，不能宣称 RoBAS 324 字段计算就绪 |
 
-### 5.2 确定性支撑能力
+不再设独立 \`confirm_recommendation\`（合并进工具①）；用户明确选择 V1 **暂不增加** \`check_solver_compatibility\`；也没有 \`question_planner\`。
 
-Agent 使用下列服务/工具，不把它们包装成独立 Agent：
+### 5.1 单轮自主工具循环
 
-- 参数/单位解析与规范化。
-- DesignBrief 状态更新和版本保存。
-- 参数依赖、缺失项、冲突和完整性检查。
-- RoBAS profile 查询与字段映射。
-- RoBAS SQLite 材料/润滑数据查询。
-- 标准/工程规则检索。
-- 确定性几何和物性派生计算。
-- RoBAS 输入模板生成及协议校验。
+\`\`\`text
+用户消息 → 加载 DesignBrief 与会话摘要 → Conversation Agent
+     ├─ 直接回复/自然语言提问 → END，等待用户
+     └─ 自主选择工具 → 受控工具执行 → 结构化结果返回 Agent
+                                               │
+                                               └── 再次决定调用工具或回复
+\`\`\`
 
-LLM 决定“下一步做什么、怎样问、怎样解释”；确定性代码负责“数据是否合法、哪些字段缺失、能否生成模板”。
+用户回复会开启下一轮。每轮设可调整的调用次数与重复调用保护；状态写入串行、带 revision/request_id。工具①成功后顺带返回新状态，通常无需再调用工具②。模型**自主决定问什么和怎么问**，但不能修改客观必需字段定义、伪造用户确认或编造专业参数。
 
-### 5.3 动态提问策略
+### 5.2 需求引导的柔性原则
 
-问题优先级建议如下，但不是固定问卷：
+根据用户当前意图、已知值、缺失值、冲突、历史回复、推荐前置条件自主选择 1–2 组相关问题；用户主动问知识可先解释，再回到参数收集。普通工况倾向尺寸→转速→载荷→温度→工程配置，但不硬编码为固定问卷。用户不懂材料时查询或推荐而不是重复提问材料名；「电机转速」不自动等于内圈转速，「总重量」不自动等于单轴承载荷。
 
-1. 阻断 RoBAS 输入准备的必要信息。
-2. 用户信息存在冲突、歧义或单位不明确的字段。
-3. 会影响材料、润滑、配合等工程配置选择的信息。
-4. 需要用户接受的系统推荐值。
-5. 对设计理解和后续评价有帮助、但不阻断第一版输入的偏好信息。
+### 5.3 工程边界
 
-每轮只选择少量高价值问题，说明为什么需要该信息；用户表示不知道时，提供可追溯的候选建议或明确说明暂时无法可靠推荐。
+\`DesignBrief\` 是唯一可信参数来源；\`PendingProposals\` 仅是待确认方案；\`ConversationHistory\` 不作为可信参数副本。用户确认状态只有 confirmed/unconfirmed，来源与近似/范围信息单独记录。用户修改工况后相关派生量和旧推荐适用性失效，不擅自修改原有用户选择。
 
-### 5.4 用户可随时修改
-
-用户可以修改已确认值。修改后应重新执行相关依赖和完整性检查；由旧值派生的字段必须重新计算。不得保留与新输入矛盾的旧确认结果。每次修改应形成可追溯的 DesignBrief 版本。
+工具⑤只检查用户层需求并允许导出缺项标记的草案。**完整 Brief、整份用户接受、RoBAS TEMPLATE_READY 和 RUNNABLE_READY 是不同概念**；后续 PR-06 仍独立建立严格工程协议 gate，暂不设 Solver Compatibility 工具不意味着忽略实际模型限制。
 
 ## 6. 目标、硬约束与计算能力边界
 
@@ -183,36 +182,38 @@ LLM 决定“下一步做什么、怎样问、怎样解释”；确定性代码�
 
 因此，第一阶段不能简单调用现有分析 API 就声称已经实现完整需求转换。必须先完成 PR-00 字段级审计，再决定是扩展输入构建器、建设明确的 profile 选择/确认机制，还是二者结合。
 
-## 9. 总体架构建议
+## 9. 总体架构：单一 Agent + 五工具 + 普通后台服务
 
-建议采用单一对话 Agent + 明确工具/服务的轻量结构：
+\`\`\`text
+Conversation API / 会话加载
+       ↓
+Conversation Agent（有界 ReAct 模型-工具循环）
+       ├── update_design_brief           ← DesignBriefStore（写入+版本）
+       ├── get_design_status             ← RequirementChecker（简洁缺项）
+       ├── lookup_engineering_knowledge  ← KnowledgeRepository（可信知识）
+       ├── recommend_engineering_config  ← RecommendationService（候选提案）
+       └── finalize_design_brief         ← FinalizationService（检查+导出）
+       ↓
+返回用户消息，等待下一轮
+\`\`\`
 
-- Conversation API：接收用户消息并返回回复和任务版本。
-- Conversation Orchestrator：管理一次对话回合；由 LLM 选择工具/下一步问题，不承担工程数值计算。
-- DesignBrief Service：维护结构化需求、来源、确认状态和版本。
-- DGB Parameter Catalog：参数定义、单位、依赖、必填条件和优化变量标识。
-- Completeness/Consistency Validator：确定性缺项、冲突和可计算性检查。
-- Knowledge Adapters：RoBAS CSV/SQLite（区分物性与几何）、标准资料、工程规则。
-- RoBAS Quasi-static Adapter：将 DesignBrief 映射为 43 条输入记录模板，检查协议。
-- Persistence：保存会话和 DesignBrief 快照。
+工具背后可有普通 Python 函数，不等于独立 Agent。推荐工具直接使用知识仓和筛选规则，不必让模型先强制调用知识查询工具。Python3.11+、Pydantic、SQLite 和最小 LangGraph/等价 agent loop 足够；不预先写空模块、不建立复杂通用规则引擎。RoBASInputAdapter 留待 PR-06，作为独立的计算输入准备能力而非第六个对话工具。
 
-建议采用 Python 3.11+、Pydantic 与轻量回合编排（如最小 LangGraph）；由唯一受信写入模块负责参数确认和版本校验。技术框架不作为旧项目遗留约束，按当前实际需求及验收再冻结。
+## 10. 实施阶段与完成条件（覆盖旧 PR 路线）
 
-## 10. 开发阶段路线图
+| 阶段 | 主要交付 | 验收目标 | 状态 |
+|---|---|---|---|
+| PR-00 / GitHub #1 | RoBAS 43/324 输入/数据源审计 | 历史字段事实已有；工程冻结 BLOCKED | 待验收 |
+| 架构设计 / GitHub #2 | 五工具 ReAct、提问职责、状态与验收规范 | 文档一致、无旧流程冲突 | 已修订待验收 |
+| PR-01 | 参数目录、DesignBrief、工具①写入和工具②简洁状态 | 无 LLM 正确写入、修订、拒绝假确认、缺项报告 | 未开始 |
+| PR-02 | 自主 ReAct 循环、接入工具①② | LLM 多轮问什么/怎么问自主、一次多参数、修订/打断 | 未开始 |
+| PR-03 | 工具③工程知识查询与来源控制 | 准确解释、工程数值有依据、缺数据不编造 | 未开始 |
+| PR-04 | 工具④审核配置推荐及工具①接受提案 | 整体/局部确认、旧工况提案失效 | 未开始 |
+| PR-05 | 工具⑤需求检查、草案/完整版导出 | 需求完成不冒充 RoBAS DATA ready，记录用户确认版本 | 未开始 |
+| PR-06 | 独立 RoBAS 43/324 模板适配 | 五变量及依赖保留待优化、协议及工程来源受审 | 未开始 |
+| 后续 | 优化、实际求解、CAD 等 | 单独立项、验收后对接 | 暂不开发 |
 
-| 阶段 | 内容 | 当前状态 |
-|---|---|---|
-| PR-00 | 43记录/324字段源码/数据审计；工程接口冻结 | UNIT_TESTED（审计工件）；工程冻结 BLOCKED，待人工验收 |
-| PR-01 | DGB 参数模型、DesignBrief、确认/来源/版本机制 | 未开始 |
-| PR-02 | LLM 多轮提取、增量更新与纠错 | 未开始 |
-| PR-03 | 动态缺项判断、提问策略和对话引导 | 未开始 |
-| PR-04 | RoBAS 数据库/标准/工程规则查询与推荐 | 未开始 |
-| PR-05 | 设计要求、硬约束候选、派生量和完整性检查 | 未开始 |
-| PR-06 | DesignBrief → 43-record RoBASInputTemplate 端到端验收 | 未开始 |
-| 后续阶段 | 参数优化模块完成后再设计 Agent 集成 | 暂不纳入 |
-| 后续阶段 | ACB/CRB、其他求解模式、CAD/工程图/报告集成 | 暂不纳入 |
-
-PR 之间允许根据审查结果调整拆分，但每个 PR 必须有明确范围、独立测试和验收结果。未经用户验收，不合并 PR，不自动开始下一个 PR。
+每个 PR 独立实现、测试、审阅，用户未批准前不合并/不开始下一个 PR。
 
 ## 11. 质量与验收原则
 
@@ -244,7 +245,9 @@ PR 之间允许根据审查结果调整拆分，但每个 PR 必须有明确范�
 - docs/00_MASTER_PLAN.md：本总控文档。
 - docs/pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md：PR-00 范围、任务、交付物、验收条件。
 - docs/parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md：43 条记录的初始字段级盘点与待核实项。
-- 后续按需增加对话设计、知识来源、API 协议和验收文档。
+- docs/agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md：V1 最终五工具 ReAct 设计及接口合同。
+- docs/agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md：动态对话、工具循环、工程可信性与交付验收。
+- 后续文档按实际交付需要增加，不维持平行旧方案。
 
 总控文档应随 PR 更新：只记录已完成且有证据的事项；将设计决定、未解决问题和后续计划分开维护。
 
@@ -271,33 +274,26 @@ PR-00 未解决的工程计算阻断不得被宣称已关闭；用户层参数�
 
 完成度词汇：NOT_IMPLEMENTED（无实现）、IMPLEMENTED（有实现）、UNIT_TESTED（相应单元检查通过）、INTEGRATION_TESTED（模块联测有证据）、REAL_ENV_VERIFIED（指定真实环境范围验证）、ENGINEERING_REVIEWED（专业人员已审核）；等级必须附范围和证据。本次工具测试不等于真实模型、求解器、外部专业计算或工程验收。
 
-## 15. 2026-11-22：Conversation Agent V1 架构设计（讨论稿，尚未开发）
+## 15. 2026-11-22：Conversation Agent V1 方案修订与项目看板
 
-**设计文档：** [Conversation Agent V1 可执行架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md)  
-**验收文档：** [动态交互黄金用例与测试矩阵](agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md)
+**最终设计入口：** [五工具 ReAct 详细架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md) · [ReAct 与五工具测试矩阵](agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md)。
 
-本轮确定：用户层 V1 需求参数不再扩张；只做一个 Conversation Agent，配合受信写入、需求检查、知识查询和 RoBAS 输入准备服务。参数只用 confirmed/unconfirmed；需求草案确认和 RoBAS TEMPLATE_READY 是不同阶段。每轮采用“LLM理解→确定性更新→检查→受约束动态决策→必要查询→回复”的有界循环。工程配置优先整套推荐并允许局部接受，数据缺证时不能伪装为可靠推荐。
+用户明确修订：采用 **Conversation Agent 自主 ReAct 工具循环**；工具②仅返回已知/缺失/待确认/冲突，**Agent 自己决定问什么、怎么问**；取消独立确认工具，其能力合并进工具①；工具⑤为最终需求检查与版本化导出；不开发独立 \`check_solver_compatibility\`。这是目前唯一有效的 Agent V1 行为设计，旧固定五步骤与五动作路由不再适用。
 
-### 项目负责人进度看板
+### 项目负责人状态看板
 
-| 工作线 | 已完成 | 当前/下一步 | 暂不开展 |
-|---|---|---|---|
-| RoBAS 协议审计 | PR-00 有 43/324 字段和数据资源审计证据 | 工程输入冻结仍 BLOCKED；PR-00 人工验收及阻断分级 | 不凭审计推断求解已验证 |
-| Conversation Agent | 当前仅完成架构设计和测试规范讨论稿 | 经用户评审后再开发 PR-01 参数模型 | 不开始优化/多Agent Supervisor |
-| 工程推荐 | 已明确需要材料、润滑、游隙/配合组合方案 | 核实少量可用的审核 profile 与实际数据源 | 不建设全量RAG |
-| 设计数据集（并行） | 共同 V1 DesignBrief 数据合同已提出 | 待另行建立来源可信的案例，供 Agent 测试 | 不把合成案例冒充真实RoBAS计算 |
-| 五变量优化（独立） | 五优化槽和 DATA 位置已审计 | 后续独立开发、验证后接入 | 当前 Agent 不执行搜索 |
-| CAD/最终交付 | 另有 Bearing_CAD 项目 | 等计算与设计任务稳定后再集成 | 当前不做 |
+| 工作线 | 当前事实 | 下一关口 |
+|---|---|---|
+| RoBAS 审计 | PR-00 历史 43/324 只读审计；工程冻结 BLOCKED | 工程适用性、真实协议和目标工况证据 |
+| Conversation Agent 架构 | GitHub #2 文档已修订；无业务代码 | 本次文档人工验收 |
+| 参数模型/状态管理 | 未实现 | PR-01 |
+| 自主 ReAct 交互 | 未实现 | PR-02 |
+| 知识查询 | 原版资源审计仅有历史依据，未建立审核配置查询服务 | PR-03 |
+| 工程推荐 | 推荐策略设计完成，未建立可用推荐库 | PR-04 |
+| 最终需求交付 | 工具⑤合同已定义，尚未实现 | PR-05 |
+| RoBAS 模板 | 旧映射问题待工程核实，无完整可靠转换 | PR-06，必须独立审核 |
+| 数据集/优化/CAD | 与当前 Agent 工作线分离 | 以后单独交付 |
 
-此处的“Conversation Agent 架构设计完成”仅表示**设计文档已写出，等待用户审阅批准**，不表示业务代码可运行。PR-01～03 的对话能力可在固定用户层参数合同后推进；PR-06 的计算模板 ready 仍必须接受 PR-00 严格工程检查。
+**PR 汇报必答**：这次做了什么、为什么做、具体数据流与输入输出、用户交互演示、mock/真实 LLM/真实 RoBAS 各测试范围、当前问题、是否过度设计、下一 PR 准入条件。设计文档写完不等于 Agent 已实现。
 
-### 负责人每次审阅 PR 必须看到
-
-- 本 PR 在总目标中的位置和为什么开发；
-- 本 PR 的真实文件/接口/数据变动；
-- 典型用户对话和状态变化的演示；
-- 单元测试/真实LLM/真实RoBAS分别完成到什么程度；
-- 当前阻断、风险、是否过度设计；
-- 下一 PR 的前置条件，是否请求用户授权。
-
-当前阶段：**设计评审中；无 Agent 业务代码；不自动合并或启动 PR-01。**
+本次仅修改文档。**PR #1 与 #2 均未合并；不自动启动 PR-01。**
