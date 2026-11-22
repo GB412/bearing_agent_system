@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from .brief_service import DesignBriefService
 from .models import TrustedContext, UpdateBatch
 from .parameter_catalog import FIELDS
+from .parameter_catalog import FIELDS
 
 
 @dataclass
@@ -132,6 +133,26 @@ class TurnTools:
             """
             return context._run("get_design_status", {})
 
+        # Keep the model-visible path list aligned with the one real field catalog.
+        # The examples clarify the nested requirement record; no path aliasing.
+        update_design_brief.description += (
+            "\n\n合法 path（仅可使用以下精确路径，不能写容器路径）：\n"
+            + "\n".join(f"- {path}" for path in FIELDS)
+            + "\n枚举字段允许值："
+            + "；".join(
+                f"{path}={','.join(spec.choices)}"
+                for path, spec in FIELDS.items() if spec.choices
+            )
+            + "\n示例仅说明结构；evidence_span 必须引用当轮用户原文：\n"
+            + '外径上限：{"path":"requirements.geometric_bounds[]",'
+            '"value":{"field":"dimensions.D_mm","operator":"<=","value":62,"unit":"mm"},'
+            '"evidence_span":"外径不能超过62mm"}\n'
+            + '寿命下限：{"path":"requirements.constraints[]",'
+            '"value":{"field":"life_hours","operator":">=","value":20000,"unit":"h"},'
+            '"evidence_span":"寿命至少20000小时"}\n'
+            + '游隙：{"path":"engineering.clearance.group","value":"CN",'
+            '"evidence_span":"游隙选CN"}'
+        )
         return [update_design_brief, get_design_status]
 
     @property
