@@ -686,12 +686,28 @@
         "text": {
           "type": "string",
           "minLength": 1
+        },
+        "language_style": {
+          "type": "string",
+          "enum": [
+            "工程技术交底",
+            "日常口语",
+            "项目委托",
+            "参数清单",
+            "目标先行",
+            "简明压缩",
+            "约束先行",
+            "现场说明",
+            "设计复核",
+            "工况先行"
+          ]
         }
       },
       "required": [
         "record_type",
         "request_id",
         "case_id",
+        "language_style",
         "text"
       ],
       "additionalProperties": false

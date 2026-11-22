@@ -19,6 +19,7 @@ from jsonschema import Draft202012Validator
 
 ROOT=Path(__file__).resolve().parents[1]/'DGB_Design_Dataset'
 VARIABLES={'Dw_mm','Z','Dpw_mm','fi','fo'}
+STYLES={'工程技术交底','日常口语','项目委托','参数清单','目标先行','简明压缩','约束先行','现场说明','设计复核','工况先行'}
 MAT='RoBAS_Resources/Resource/materialDB.csv'
 LUB='RoBAS_Resources/Resource/lubricantDB.csv'
 MODEL='RoBAS_Resources/Data/DGBData.db'
@@ -61,6 +62,7 @@ def offline(cases,requests,schema):
     fail('case_id uniqueness or join mismatch')
   if len(set(r['request_id'] for r in requests))!=len(requests):fail('duplicate request id')
   if len(set(r['text'] for r in requests))!=len(requests):fail('duplicate natural language request')
+  if any(r.get('language_style') not in STYLES for r in requests):fail('unknown language style')
   for cid,c in cmap.items():
     d=c['dimensions']; op=c['operating']; en=c['engineering'];data=c['robas_data']
     if not (0<d['d_mm']<d['D_mm'] and d['B_mm']>0):fail(f'{cid}: invalid envelope')
@@ -87,11 +89,22 @@ def offline(cases,requests,schema):
     if any(s not in text for s in must):fail(f'{cid}: request missing design field text')
     for k,v in opt['locked'].items():
       if k not in text or str(v) not in text:fail(f'{cid}: lock missing from request')
+    variable_words={'Dw_mm':'Dw','Z':'Z','Dpw_mm':'Dpw','fi':'fi','fo':'fo'}
     for k,b in opt['bounds'].items():
-      if (('Dw' if k=='Dw_mm' else k) not in text or f"{b['min']:g}" not in text or f"{b['max']:g}" not in text):
+      if (variable_words[k] not in text or f"{b['min']:g}" not in text or f"{b['max']:g}" not in text):
         fail(f'{cid}: bounds missing from request')
+    metric_tokens={'L10h':'L10h','power_loss_w':'功耗','temperature_rise_c':'温升','peak_contact_pressure_mpa':'接触压力'}
     for con in c['requirements']['constraints']:
-      if f"{con['value']:g}" not in text:fail(f'{cid}: numeric target omitted')
+      if (f"{con['value']:g}" not in text or metric_tokens[con['metric']] not in text):
+        fail(f'{cid}: numeric target or metric omitted')
+    objective_tokens={'minimize_power_loss':'功耗','maximize_L10h':'寿命',
+       'minimize_temperature_rise':'温升','minimize_peak_contact_pressure':'接触',
+       'maximize_radial_stiffness':'刚度'}
+    if objective_tokens[c['requirements']['objective']] not in text:fail(f'{cid}: objective omitted')
+    if not ('外圈' in text and '固定' in text and '顺时针' in text and '竖直向下' in text):
+      fail(f'{cid}: rotation or load direction missing')
+    if any(not (100 <= len(x['text']) <= 1000) for x in [rmap[cid]]):
+      fail(f'{cid}: suspicious natural-language length')
     if not all('csv_line' in value for value in data['materials'].values()):fail(f'{cid}: material evidence missing')
   return len(cases),len(requests)
 
@@ -150,6 +163,7 @@ def main():
     fail('review CSV mismatch')
   print(f'STRUCTURE_AND_CROSSFILE_PASS: {n} design cases, {m} natural-language requests, {len(review)} review rows')
   print('OBJECTIVES:',dict(Counter(x['requirements']['objective'] for x in cases)))
+  print('LANGUAGE_STYLES:',dict(Counter(x['language_style'] for x in requests)))
   if args.robas_archive:
     print('CATALOG_EXACT_MATCH_PASS:',verified_catalog(cases,args.robas_archive))
   else:
