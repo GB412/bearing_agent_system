@@ -74,6 +74,66 @@
         "checked_on": "2026-11-23",
         "source_type": "manufacturer_technical_faq"
       }
+    },
+    {
+      "id": "ntn-shaft-housing-fit-principles",
+      "topic": "fit",
+      "match_terms": [
+        "配合",
+        "轴承座配合",
+        "bearing fit"
+      ],
+      "summary": "配合可分为间隙、过渡和过盈等形式；旋转套圈通常需要防止相对配合面的蠕动，但配合选择仍取决于载荷、温度、轴承与轴座材料。",
+      "facts": [
+        {
+          "field": "fit.factors",
+          "value": "载荷、温度、轴承类型、轴与座材料及旋转套圈",
+          "unit": null
+        }
+      ],
+      "applicability": "仅提供电机轴承轴/座配合的原则性解释；不能用来直接批准特定k6/H7公差组合。",
+      "limitations": [
+        "没有具体k6或H7的尺寸公差表",
+        "需要验证套圈旋转/受力方式、温升和配合尺寸后才能确定"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NTN Americas",
+        "title": "Bearing with Shaft & Housing Fits",
+        "url": "https://ntnamericas.com/technical-resources/shaft-housing-fits/",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_technical_guide"
+      }
+    },
+    {
+      "id": "skf-grease-general-property",
+      "topic": "lubrication",
+      "match_terms": [
+        "脂润滑",
+        "润滑脂",
+        "grease"
+      ],
+      "summary": "与油相比，润滑脂通常更容易保持在轴承布置内部，因此相关密封与供脂装置可更简单；这不是特定工况下的自动选脂结论。",
+      "facts": [
+        {
+          "field": "lubrication.grease_general_property",
+          "value": "相较油润滑，润滑脂更容易留存在轴承布置内",
+          "unit": null
+        }
+      ],
+      "applicability": "润滑方式的通用差异说明；所引SKF页面讨论精密轴承，不直接推导普通工业电机的最佳方案。",
+      "limitations": [
+        "无推荐黏度、润滑脂牌号、补脂周期或转速极限",
+        "无法据此认定PA66兼容性或RoBAS润滑模型输入完整"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "SKF",
+        "title": "Selecting a suitable grease",
+        "url": "https://www.skf.com/il/products/super-precision-bearings/principles/bearing-selection-process/lubrication/suitable-grease",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_technical_guide"
+      }
     }
   ]
 }
