@@ -87,6 +87,7 @@ class Engineering(StrictModel):
 
 
 class Requirement(StrictModel):
+    id: str | None = None  # Server-owned identifier; legacy records may not have one.
     field: str
     operator: Literal["<", "<=", "=", ">=", ">", "minimize", "maximize", "text"]
     value: float | str | None = None
@@ -172,6 +173,7 @@ class DesignBrief(StrictModel):
 
 class UpdateChange(StrictModel):
     path: str
+    target_id: str | None = None  # Requirement edits only; never for scalar fields.
     value: Any
     unit: str | None = None
     precision: Literal["exact", "approximate", "range"] = "exact"
