@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import threading
 import time
 from collections.abc import Callable
@@ -16,6 +15,7 @@ from .agent_prompt import build_system_prompt
 from .agent_tools import TurnTools
 from .brief_service import DesignBriefService
 from .conversation_store import ConversationStore
+from .reply_guard import needs_write_repair, verified_reply
 
 
 @dataclass(frozen=True)
@@ -133,12 +133,41 @@ class ConversationAgent:
                     {"messages": messages},
                     config={"recursion_limit": 2 * self.max_tool_calls + 5},
                 )
-                emitted = output["messages"][len(previous_messages) + 1:]
+                emitted = output["messages"][len(messages):]
                 answer = _answer_text(output["messages"][-1])
+                stats = _usage(emitted)
+                # A model answer is not a write receipt. Allow one repair with
+                # exactly the same trusted turn and remaining tool-call budget.
+                if (needs_write_repair(
+                    answer, user_message, turn_tools.successful_paths
+                ) and not turn_tools.failed_writes
+                        and len(turn_tools.trace) < self.max_tool_calls):
+                    repair = output["messages"] + [{
+                        "role": "user",
+                        "content": (
+                            "[程序核验反馈，不是新用户消息] 你刚才声称参数已保存，"
+                            "但本轮没有成功写入。请基于本轮原始用户消息调用"
+                            " update_design_brief；如果用户意图或对应部件不明确，"
+                            "请先澄清，不得自行补足。evidence_span 只能引用"
+                            "原始用户消息，不能引用此反馈。这是唯一一次纠正机会。"
+                        ),
+                    }]
+                    correction = agent.invoke(
+                        {"messages": repair},
+                        config={"recursion_limit": 2 * self.max_tool_calls + 5},
+                    )
+                    for key, count in _usage(
+                        correction["messages"][len(repair):]
+                    ).items():
+                        stats[key] += count
+                    answer = _answer_text(correction["messages"][-1])
                 if not answer:
                     answer = "本轮未生成有效回复。当前已保存状态可通过 /status 查看。"
-                answer = self._finalize(answer, turn_tools, user_message)
-                stats = _usage(emitted)
+                answer = verified_reply(
+                    answer, user_message,
+                    self.service.get_design_status(session_id).model_dump(mode="json"),
+                    turn_tools.successful_paths, turn_tools.failed_writes,
+                )
                 error_type = None
             except Exception as exc:
                 # Never retry a model/tool loop after an uncertain partial write.
@@ -159,39 +188,3 @@ class ConversationAgent:
                 elapsed_seconds=time.perf_counter() - started, error_type=error_type,
             )
 
-    @staticmethod
-    def _finalize(answer: str, tools: TurnTools, user_message: str) -> str:
-        """Guard reportable claims against real tool receipts, never model self-report."""
-        success = tools.successful_paths
-        failures = tools.failed_writes
-        if failures:
-            succeeded = "、".join(dict.fromkeys(success)) if success else "无"
-            return (
-                f"本轮存在未通过的参数更新，不能宣称全部保存成功。"
-                f"实际写入字段：{succeeded}。请根据 /status 查看当前数据，"
-                "对被拒绝的字段补充或澄清原话。"
-            )
-        claims_new_write = bool(re.search(r"(?:本轮|刚才|刚刚|已经|成功).{0,8}"
-                                          r"(?:保存|记录|修改|更新|写入)", answer))
-        called_write = any(t["name"] == "update_design_brief" for t in tools.trace)
-        asking_about_history = any(
-            word in user_message
-            for word in ("目前", "当前", "以前", "此前", "之前", "已经保存", "已记录",
-                         "进度", "进展", "已确定", "还缺", "有哪些")
-        )
-        # A status summary can correctly say "previously saved" without a NEW write.
-        if claims_new_write and not called_write and not asking_about_history:
-            return (
-                "本轮没有调用参数写入工具，因此没有新增或修改已保存的设计参数。"
-                "可以继续提供信息；已有状态请通过 /status 查看。"
-            )
-        unsupported_completion = bool(
-            re.search(r"(?:已完成全部设计|需求已正式确认|RoBAS.{0,10}(?:可运行|已就绪)"
-                      r"|已经完成校核|CAD已生成)", answer, re.I)
-        )
-        if unsupported_completion:
-            return (
-                "当前仅建立用户层设计需求草案，尚未进行正式整份确认、"
-                "工程计算校核、RoBAS 输入验证或 CAD 生成。"
-            )
-        return answer
