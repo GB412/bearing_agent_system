@@ -194,3 +194,20 @@ def test_source_is_server_owned(service):
     assert isinstance(brief.dimensions.d_mm, ParameterValue)
     assert brief.dimensions.d_mm.source.message_id == "trusted-id"
     assert brief.dimensions.d_mm.source.kind == "user"
+
+
+def test_wrong_unit_cannot_transform_explicit_mm_into_cm(service):
+    out = update(service, [ch("dimensions.d_mm", 25, "轴承内径25mm", "cm")], "轴承内径25mm")
+    assert out.rejected_changes
+    assert service.get_brief("s1")[0].dimensions.d_mm is None
+
+
+def test_wrong_temperature_unit_rejected(service):
+    out = update(service, [ch("operating.temperature_c", 60, "温度60℃", "K")], "温度60℃")
+    assert out.rejected_changes
+
+
+def test_correct_unit_conversion_respects_explicit_evidence(service):
+    out = update(service, [ch("dimensions.d_mm", 2.5, "内径2.5cm", "cm")], "轴承内径2.5cm")
+    assert out.revision == 1
+    assert out.design_status.known["dimensions.d_mm"]["value"] == 25
