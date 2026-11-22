@@ -71,3 +71,14 @@ def test_live_grader_does_not_treat_part_number_as_numeric_measurement():
         sources=["https://ntnamericas.com/technical-resources/shaft-housing-fits/"],
     )]
     assert grade_knowledge_case(case, turns, final_revision=0) == []
+
+
+def test_6206_product_number_does_not_satisfy_missing_62_mm_measurement():
+    case = CASES[0]
+    url = "https://www.skf.com/si/products/rolling-bearings/ball-bearings/deep-groove-ball-bearings/productid-6206"
+    turns = [_turn(
+        answer="SKF 6206的尺寸是30×16mm，来源：" + url,
+        status="FOUND", ids=["skf-6206-dimensions"], sources=[url],
+    )]
+    errors = grade_knowledge_case(case, turns, final_revision=0)
+    assert any("62" in error for error in errors)
