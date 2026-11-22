@@ -87,13 +87,12 @@ def grade(brief: Any, case: dict[str, Any]) -> list[str]:
         if value is None or not _close(value.value, wanted):
             errors.append(f"{path}: expected {wanted}, got {None if value is None else value.value}")
     for path in case.get("missing", []):
-        # A special pseudo-path may name a missing group rather than a field.
-        if path.startswith("engineering.clearance."):
-            value = get_path_value(brief, path)
-        else:
-            value = get_path_value(brief, path)
-        if value is not None:
+        if get_path_value(brief, path) is not None:
             errors.append(f"{path}: should remain unknown")
+    for path in case.get("pending", []):
+        value = get_path_value(brief, path)
+        if value is None or value.confirmed or value.precision == "exact":
+            errors.append(f"{path}: approximate value must remain pending")
     for name, mode in case.get("slots", {}).items():
         slot = getattr(brief.optimization_slots, name)
         if slot.mode != mode:
