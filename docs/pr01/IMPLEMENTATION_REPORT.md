@@ -1,27 +1,80 @@
 # PR-01 · DGBDesignBrief / 受信状态管理实施与验收说明
 
-> 2026-11-22 · 代码实现阶段；真实 DeepSeek、ReAct、RoBAS 求解均不在本 PR 范围内。
+> 2026-11-23；真实 DeepSeek、ReAct、RoBAS 求解不在本 PR 范围内。PR #3 为 Draft，等待用户本地验收。
 
-## 实现内容
+## 本 PR 实现内容
 
-- `DGBDesignBrief/v1` Pydantic 模型：用户层 bearing、dimensions、operating、engineering、requirements、optimization_slots、solver_context；优化五槽默认 `optimize`。
-- 单一字段白名单、数值/单位规范化及原话显式单位冲突拒绝；未知字段和系统保留字段禁止模型修改。
-- `SQLiteDesignBriefStore`：每个 session 一份 Brief，结构化 `set`/`replace`、单次批量原子提交、无实际变化不增加 revision，短 SQLite 事务。
-- `DesignBriefService`：后续工具①、工具②可以直接调用的 Python 业务入口。无需 LangGraph 即可调用。
-- `get_design_status`：只返回 known/missing/pending_confirmation/conflicts；不生成问句和优先级。
-- 工程数据不默认填充。五变量留给未来优化；最终完整性/整份确认/推荐与知识查询不在此 PR 实现。
+- `DGBDesignBrief/v1` Pydantic 模型：bearing、dimensions、operating、engineering、requirements、optimization_slots、solver_context；五优化槽默认 `optimize`。
+- 一份数值字段目录，针对普通数值、嵌套约束和五个优化槽，统一检查原始数字证据、物理单位、基本类型，再转换为规范单位。
+- `SQLiteDesignBriefStore`：每 session 一份 Brief；`set/replace`、原子批量写入、实际值无变化不增加 revision，显式关闭 SQLite 连接以兼容 Windows 临时目录。
+- `DesignBriefService`：为 PR-02 工具①/②提供直接可复用的 Python 入口。
+- `get_design_status`：已知、缺失、待确认、冲突；包含已生效约束的 ID 和优化槽当前值，不进行提问决策。
 
-## 自动化验证
+## PR-01 验收补丁：参数可信性与约束修改
 
-- **本地实测**：`PYTHONPATH=src python -m pytest -q tests` → **49 passed (0.42s)**，使用 Python 3.13.5 / Pydantic 2.13.5 / pytest 9.0.2。覆盖空任务、批量更新、更新回滚、来源、零值、估计、单位、约束、游隙、Z 锁定、重启持久化、非法几何和未知字段。
-- `python -m examples.pr01_demo`（或在仓库根目录运行 `python examples/pr01_demo.py`）：显示写入结果、缺项、重新打开 SQLite 后的 Brief。
-- `python -m compileall -q src tests`：本地运行通过。\n- `python -m pip install --no-index --no-deps --no-build-isolation -e .`：在已有依赖环境下本地可编辑安装通过。
+1. **锁定/有界优化变量的单位与证据**：
+   - `Dw_mm`、`Dpw_mm`：允许带有明确用户证据的长度单位换算，如 `Dw=0.8cm → 8mm`、`Dpw∈[3,4]cm → [30,40]mm`。
+   - `Z` 必须为正整数且无物理单位；`fi/fo` 是无量纲数。数值范围的两个端点都需要在引用的用户原话中出现；不存在的端点不得由模型编造。
+   - `precision=approximate`、或原话紧邻该数字出现“约/大约”等语义，不允许直接写入生效的 `locked/bounded`；必须由下一轮澄清或确认后再写。当前 **不额外保存优化槽的暂定估计值**。
+2. **几何与数值约束**：
+   - `外径不超过5.2mm` 且模型错传 `cm` 必须拒绝，不能静默保存为 `D≤52mm`。
+   - 已明确表达 `≤/≥/不超过/至少/上限` 等限制的用户消息，不能被截取数字后错误写成 `D=52` 等固定尺寸。
+   - 已支持的额外定量目标包括 `life_hours`（h）、`power_loss`（W）；未知字段的**数值硬约束**不允许无单位合同就直接确认为受信工程数据。
+3. **约束替换和撤销**：
+   - `set` 自动生成 `req-...` ID；`replace` 要求 `UpdateChange.target_id` 指定原有约束；`replace` 且 `value=null`，并具备用户撤销证据时，移除该约束。
+   - 同一字段/比较符的不同上限，要求明确 `replace`，避免旧限制被一直追加。多个不同方向的约束可以同时存在。
+   - 旧版本 SQLite 中缺少 ID 的约束自动补 ID 并持久化，不改变已有内容 revision；用户修改后已撤销的约束不再参与冲突检查。
 
-## 明确限制及后续 PR
+## 工具输入示例
 
-- PR-01 接受**结构化**参数，不独立解析用户自然语言；语义识别/缺字段检测/真实 DeepSeek 多轮测试从 PR-02 开始。`evidence_span` 的字符存在性与少量显式负面规则**不能证明完整自然语言语义正确**。
-- 用户确认推荐与整份 Brief 需要实际提案和可验证摘要，分别留给 PR-04/05。
-- 材料/润滑的目录 ID 目前是用户选择的标识，不等于数据可用或经过专业审核。
-- 没有 RoBAS 43/324 字段映射、真实求解器调用或 CAD。
-- 单进程单会话串行是 V1 目标；无操作级幂等日志表、分布式事务或断点恢复平台。
-- 完整 `ruff check .` 在有 Ruff 的标准开发/CI 环境执行；本地缺 Ruff 时不冒充通过。
+优化槽采用顶层单位：
+
+```json
+{
+  "operation": "set",
+  "changes": [
+    {
+      "path": "optimization_slots.Dw_mm",
+      "value": {"mode": "locked", "value": 0.8},
+      "unit": "cm",
+      "precision": "exact",
+      "evidence_span": "锁定Dw=0.8cm"
+    }
+  ]
+}
+```
+
+约束采用嵌套单位；编辑时需指定受信状态返回的 ID：
+
+```json
+{
+  "operation": "replace",
+  "changes": [
+    {
+      "path": "requirements.geometric_bounds[]",
+      "target_id": "req-<实际数据库ID>",
+      "value": {
+        "field": "dimensions.D_mm",
+        "operator": "<=",
+        "value": 60,
+        "unit": "mm"
+      },
+      "evidence_span": "外径上限改为60mm"
+    }
+  ]
+}
+```
+
+## 自动化验收
+
+- GitHub Actions Python 3.11：最新受信修复测试结果 **85 passed**；`ruff check .` 通过；`python examples/pr01_demo.py` 通过。
+- 包含数值单位/原话冲突、范围端点真实性、近似值锁定、截短证据中的比较符、上下限方向、约束替换/撤销、事务回滚、旧数据 ID 迁移以及普通零值输入。
+- 本地 Windows 验收：`python -m pytest -q tests`、`ruff check .`、`python examples/pr01_demo.py`，并检查临时 SQLite 文件是否可以清理。
+
+## 仍然不在 PR-01 范围内
+
+- 用户自然语言的完整语义判定：简单的比较符和证据片段扫描只防明显错误，**不代表模型已完整理解句子**。复杂用户意图、指代与歧义由 PR-02 DeepSeek 多轮对话处理。
+- 未经审核的专业材料、润滑剂或型号目录，不能因为格式合法就被视为工程可用。
+- 系统提出的优化建议范围应在未来推荐阶段作为**待用户接受的提案**；当前不允许冒充用户输入的硬范围。
+- 不构建额外 Agent、全量规则引擎、求解器调用、RoBAS 43/324 字段适配或 CAD。
+- V1 同一会话串行更新，不实现分布式事务、操作级 exactly-once 或复杂恢复框架。
