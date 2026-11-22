@@ -19,6 +19,9 @@ WRITE_CLAIM = re.compile(
     r"|(?:记录|保存|写入|录入|更新|修改|设置)(?:好了|成功|完成|到草案)"
 )
 PAST_CONTEXT = ("此前", "以前", "之前", "上轮", "上次", "历史")
+STATUS_MARKER = "[[DESIGN_STATUS]]"
+# Only explicit model claims of confirmed status; not a user-intent classifier.
+CONFIRMED_LINE = re.compile(r"^\\s*(?:\\*\\*)?已确认(?:\\*\\*)?(?:[：:]|.{0,12}(?:参数|工作温度))")
 UNSUPPORTED_CLAIMS = re.compile(
     r"(?:已完成全部设计|需求已正式确认|RoBAS.{0,10}(?:可运行|已就绪)"
     r"|已经完成校核|CAD已生成)", re.I
@@ -192,9 +195,26 @@ def verified_reply(
         lines.append("本轮仍未保存：" + "；".join(items) + "。可用 /trace 查看详情。")
     if result.unknown_failures:
         lines.append("还有无法确定字段的更新失败，请用 /trace 查看详情。")
+    # Unresolved writes are reported from receipts only. A rejected model
+    # attempt must never turn into a claimed design change in free text.
+    if result.unresolved or result.unknown_failures:
+        return "\n".join(lines)
     if UNSUPPORTED_CLAIMS.search(answer):
         answer = "当前仅建立需求草案，尚未进行工程校核、RoBAS 验证或 CAD 生成。"
     natural = _free_text_without_new_write_claims(answer)
+    # Explicit structured status request from the model: render actual SQLite
+    # status without inferring intent from the user's Chinese vocabulary.
+    if STATUS_MARKER in natural:
+        natural = natural.replace(STATUS_MARKER, trusted_summary(status))
+    # Narrow fallback for unsupported *confirmed* declarations in free text.
+    # Replace only the assertion line, never an unrelated engineering analysis.
+    paragraphs = []
+    for line in natural.splitlines():
+        if CONFIRMED_LINE.search(line):
+            paragraphs.append(trusted_summary(status))
+        else:
+            paragraphs.append(line)
+    natural = "\n".join(paragraphs).strip()
     if not natural and not lines:
         return "本轮没有成功写入新的参数。请澄清需求或通过 /status 核对已有数据。"
     return "\n".join([*lines, natural] if natural else lines)
