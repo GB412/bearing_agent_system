@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +21,6 @@ from bearing_agent_system.conversation import ConversationAgent
 from bearing_agent_system.conversation_store import ConversationStore
 from bearing_agent_system.llm_client import make_deepseek_model
 from bearing_agent_system.parameter_catalog import get_path_value
-
 
 # A test task is kept together across its turns. No training/test split within task.
 CASES: list[dict[str, Any]] = [
@@ -104,7 +103,7 @@ def grade(brief: Any, case: dict[str, Any]) -> list[str]:
             errors.append(f"slot {name}: wrong fixed value")
     for name, bounds in case.get("slot_bounds", {}).items():
         real = getattr(brief.optimization_slots, name).bounds
-        if real is None or len(real) != 2 or not all(_close(a, b) for a, b in zip(real, bounds)):
+        if real is None or len(real) != 2 or not all(_close(a, b) for a, b in zip(real, bounds, strict=True)):
             errors.append(f"slot {name}: wrong bounds")
     actual_bounds = brief.requirements.geometric_bounds
     if "bound_count" in case and len(actual_bounds) != case["bound_count"]:
@@ -127,7 +126,7 @@ def evaluate(model_name: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
     model = make_deepseek_model(model_name)
     report: dict[str, Any] = {
         "mode": "LIVE_DEEPSEEK", "model": model_name,
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
         "results": [],
     }
     with tempfile.TemporaryDirectory(prefix="pr02-live-") as folder:
