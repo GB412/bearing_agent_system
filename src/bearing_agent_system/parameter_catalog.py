@@ -281,6 +281,10 @@ def _make_requirement(change: UpdateChange, source: Source,
             if spec is None or spec.kind != "number":
                 raise InvalidChange("Unregistered quantitative requirement field")
             raw_value = _finite_number(value)
+            if change.precision == "approximate" or _approximate_near(
+                context.user_message, raw_value
+            ):
+                raise InvalidChange("Approximate quantity cannot create a hard requirement")
             value = _checked_quantity(raw_value, unit, spec, change.evidence_span)
             unit = spec.unit
             observed_op = _nearby_operator(context.user_message, raw_value)
@@ -328,7 +332,8 @@ def _make_slot(change: UpdateChange, source: Source,
         if not any(marker in change.evidence_span
                    for marker in ("到", "至", "～", "~", "-", "—", "之间", "范围", "∈", "区间")):
             raise InvalidChange("No explicit range relation in optimization evidence")
-        if "不知道" in change.evidence_span or "不确定" in change.evidence_span:
+        if any(t in change.evidence_span for t in (
+                "不知道", "不确定", "未知", "还没确定", "尚未确定", "没决定")):
             raise InvalidChange("Unknown user value is not an authorized numeric range")
         normalized: list[float] = []
         for endpoint in bounds:
@@ -371,6 +376,9 @@ def normalize_change(change: UpdateChange, context: TrustedContext) -> Parameter
     if spec.kind == "slot":
         return _make_slot(change, source, context)
     if spec.kind == "number":
+        if change.precision == "exact" and _approximate_near(
+                context.user_message, float(change.value)):
+            raise InvalidChange("Approximate user value cannot be confirmed as exact")
         value = _checked_quantity(change.value, change.unit, spec, change.evidence_span,
                                   path=change.path)
         if change.path.startswith("dimensions."):
