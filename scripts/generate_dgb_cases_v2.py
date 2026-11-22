@@ -24,6 +24,12 @@ RING_MATERIALS = {"氮共渗轴承钢", "渗碳轴承钢"}
 CAGE_MATERIAL = "工具钢"
 LUBRICANTS = {"VG22", "VG32", "VG46", "VG68", "VG100"}
 
+# A focused 80-case DOE over five original RoBAS envelope models.
+# Existing case IDs and the 10-language-style round-robin are retained; when an
+# old large-envelope case changes to a smaller model, the *synthetic scenario*
+# loads/speed were reduced to keep test inputs diverse but not imply feasibility.
+# The scale factor is a data-authoring heuristic, NOT an engineering capacity limit.
+# The chosen cases and all numerical constraints remain UNVERIFIED by the solver.
 # Distinct user requirements: applications, dimensions, operating conditions, targets,
 # and different optimization locks / bounds. None is claimed physically feasible.
 def spec(model, app, ni, no, fr, fa, temp, ring, lub, clr, fit, obj, cons, opt="all"):
@@ -32,29 +38,29 @@ def spec(model, app, ni, no, fr, fa, temp, ring, lub, clr, fit, obj, cons, opt="
 
 CASES = [
  spec("6205","高速电机转子支承",15000,0,300,50,60,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("L10h",">=",20000,"h")]),
- spec("6003","小型鼓风机轴承",14000,0,180,0,55,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",12000,"h")]),
- spec("6004","电动通风机电机支承",18000,0,240,30,65,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_temperature_rise",[("power_loss_w","<=",5,"W"),("L10h",">=",15000,"h")]),
+ spec("6204","小型鼓风机轴承",12300,0,180,0,55,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",12000,"h")]),
+ spec("6005","电动通风机电机支承",16700,0,240,30,65,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_temperature_rise",[("power_loss_w","<=",5,"W"),("L10h",">=",15000,"h")]),
  spec("6005","循环冷却风机",12500,0,500,0,70,"渗碳轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("L10h",">=",15000,"h")]),
- spec("6006","高速电主轴辅助支承",20000,0,450,80,75,"氮共渗轴承钢","VG22","C3","k5/H7","maximize_radial_stiffness",[("L10h",">=",15000,"h")]),
- spec("6007","离心泵电机支承",9000,0,1000,200,80,"渗碳轴承钢","VG46","C3","m5/H7","maximize_L10h",[("L10h",">=",25000,"h")]),
- spec("6008","数控驱动电机支承",11000,0,900,100,70,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",25,"degC")]),
- spec("6203","轴流风机电机",16000,0,320,40,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",18000,"h")],"lockZ"),
+ spec("6205","高速电主轴辅助支承",20000,0,410,75,75,"氮共渗轴承钢","VG22","C3","k5/H7","maximize_radial_stiffness",[("L10h",">=",15000,"h")]),
+ spec("6005","离心泵电机支承",9000,0,660,130,80,"渗碳轴承钢","VG46","C3","m5/H7","maximize_L10h",[("L10h",">=",25000,"h")]),
+ spec("6305","数控驱动电机支承",11000,0,780,85,70,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",25,"degC")]),
+ spec("6204","轴流风机电机",14800,0,320,40,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",18000,"h")],"lockZ"),
  spec("6204","小型工业减速器",6000,0,1500,150,78,"渗碳轴承钢","VG46","CN","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",2000,"MPa")],"boundDw"),
  spec("6205","循环泵传动端轴承",9000,0,1100,120,72,"氮共渗轴承钢","VG32","C3","k5/H7","maximize_L10h",[("L10h",">=",30000,"h")],"lockZ"),
  spec("6206","输送装置滚筒支承",3000,0,2700,100,68,"渗碳轴承钢","VG68","CN","m5/H7","maximize_L10h",[("L10h",">=",25000,"h")],"boundDw"),
- spec("6207","工厂齿轮箱径向支承",4500,0,3300,230,75,"氮共渗轴承钢","VG68","C3","m5/H7","minimize_peak_contact_pressure",[("L10h",">=",25000,"h")],"lockZ"),
- spec("6208","机油输送泵支承",5500,0,3000,0,83,"渗碳轴承钢","VG46","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",25,"W")],"boundDw"),
- spec("6304","中小型机械旋转关节",2500,0,2200,300,50,"氮共渗轴承钢","VG32","CN","k5/H7","maximize_radial_stiffness",[("L10h",">=",40000,"h")]),
+ spec("6205","工厂齿轮箱径向支承",4500,0,2030,140,75,"氮共渗轴承钢","VG68","C3","m5/H7","minimize_peak_contact_pressure",[("L10h",">=",25000,"h")],"lockZ"),
+ spec("6206","机油输送泵支承",5500,0,2050,0,83,"渗碳轴承钢","VG46","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",25,"W")],"boundDw"),
+ spec("6205","中小型机械旋转关节",2400,0,2200,300,50,"氮共渗轴承钢","VG32","CN","k5/H7","maximize_radial_stiffness",[("L10h",">=",40000,"h")]),
  spec("6305","农机传动轴支承",1800,0,4200,150,65,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",30000,"h")]),
- spec("6306","工艺空气压缩机辅助支承",7500,0,3000,250,87,"氮共渗轴承钢","VG46","C3","k5/H7","minimize_power_loss",[("temperature_rise_c","<=",25,"degC")]),
- spec("6307","液压电机轴承",3700,0,6500,500,92,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("L10h",">=",30000,"h")]),
- spec("6002","小型精密仪表旋转机构",9000,0,80,0,42,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",10000,"h")],"boundCurvature"),
- spec("6001","微型高速散热风扇",25000,0,60,10,53,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",10000,"h")]),
- spec("6209","制冷压缩机辅助轴承",3500,0,5500,450,88,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",35000,"h")],"lockZ"),
- spec("6210","通用重载传动轴支承",2200,0,7800,0,90,"渗碳轴承钢","VG100","C3","m5/H7","minimize_power_loss",[("temperature_rise_c","<=",30,"degC")],"boundDw"),
- spec("6308","工业搅拌机主轴支承",1500,0,12000,900,90,"氮共渗轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",40000,"h")]),
- spec("6202","轻型传送设备端部轴承",3000,0,700,0,48,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",15,"degC")],"lockZ"),
- spec("6000","微型直流电机支承",21000,0,120,15,55,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",10000,"h")]),
+ spec("6206","工艺空气压缩机辅助支承",7500,0,2400,200,87,"氮共渗轴承钢","VG46","C3","k5/H7","minimize_power_loss",[("temperature_rise_c","<=",25,"degC")]),
+ spec("6206","液压电机轴承",3700,0,4430,340,92,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("L10h",">=",30000,"h")]),
+ spec("6005","小型精密仪表旋转机构",7300,0,80,0,42,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",10000,"h")],"boundCurvature"),
+ spec("6205","紧凑型高速散热风扇",18000,0,60,10,53,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",10000,"h")]),
+ spec("6204","制冷压缩机辅助轴承",3500,0,2260,185,88,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",35000,"h")],"lockZ"),
+ spec("6205","通用重载传动轴支承",2200,0,3430,0,90,"渗碳轴承钢","VG100","C3","m5/H7","minimize_power_loss",[("temperature_rise_c","<=",30,"degC")],"boundDw"),
+ spec("6305","工业搅拌机主轴支承",1500,0,6860,515,90,"氮共渗轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",40000,"h")]),
+ spec("6205","轻型传送设备端部轴承",2400,0,700,0,48,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",15,"degC")],"lockZ"),
+ spec("6204","紧凑型直流电机支承",15400,0,120,15,55,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",10000,"h")]),
 ]
 
 
@@ -68,60 +74,70 @@ CASES += [
  spec("6205","小型泵长时间连续运行",4200,0,1050,160,68,"渗碳轴承钢","VG46","C3","m5/H7","maximize_L10h",[("L10h",">=",50000,"h")],"boundDpw"),
  spec("6206","风机电机轻载模式",16000,0,320,0,64,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",22000,"h")],"boundFo"),
  spec("6206","输送线频繁运行的等效稳态点",3600,0,3100,210,74,"渗碳轴承钢","VG68","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",28000,"h"),("peak_contact_pressure_mpa","<=",1900,"MPa")],"lockZ_boundDw"),
- spec("6206","水泵驱动高转速点",11800,0,1500,260,80,"氮共渗轴承钢","VG46","C3","k5/H7","minimize_peak_contact_pressure",[("L10h",">=",22000,"h")],"boundFiFo"),
+ spec("6005","水泵驱动高转速点",11800,0,990,170,80,"氮共渗轴承钢","VG46","C3","k5/H7","minimize_peak_contact_pressure",[("L10h",">=",22000,"h")],"boundFiFo"),
  spec("6206","电机工况切换后的低速设计点",2300,0,1800,0,53,"渗碳轴承钢","VG100","CN","m5/H7","maximize_L10h",[("L10h",">=",42000,"h"),("power_loss_w","<=",23,"W")]),
- spec("6004","微型泵轴轻载高速方案",22000,0,100,20,60,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",14000,"h")],"boundCurvature"),
- spec("6004","实验设备低转速轴承工况",2200,0,850,0,45,"渗碳轴承钢","VG68","CN","m5/H7","maximize_L10h",[("L10h",">=",30000,"h")]),
- spec("6004","小型风机持续热运行点",9000,0,540,95,85,"氮共渗轴承钢","VG32","C3","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",20,"degC"),("L10h",">=",18000,"h")],"boundCurvature"),
+ spec("6205","紧凑型泵轴轻载高速方案",19700,0,100,20,60,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",14000,"h")],"boundCurvature"),
+ spec("6204","实验设备低转速轴承工况",2100,0,850,0,45,"渗碳轴承钢","VG68","CN","m5/H7","maximize_L10h",[("L10h",">=",30000,"h")]),
+ spec("6005","小型风机持续热运行点",8400,0,540,95,85,"氮共渗轴承钢","VG32","C3","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",20,"degC"),("L10h",">=",18000,"h")],"boundCurvature"),
  spec("6305","工业转盘低速承载点",900,0,6000,350,75,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1700,"MPa"),("L10h",">=",30000,"h")],"boundFiFo"),
- spec("6305","中型减速装置转轴支承",4200,0,2900,600,86,"氮共渗轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",32000,"h")],"boundFo"),
+ spec("6205","中型减速装置转轴支承",4200,0,2230,460,86,"氮共渗轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",32000,"h")],"boundFo"),
  spec("6305","通用电机中速轻载设计点",6500,0,550,40,60,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",12,"W"),("temperature_rise_c","<=",22,"degC")]),
- spec("6308","搅拌传动低速大径向载荷",800,0,14500,1200,93,"渗碳轴承钢","VG100","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",20000,"h"),("peak_contact_pressure_mpa","<=",2100,"MPa")],"boundFiFo"),
- spec("6308","大功率风机转轴中速负载点",3500,0,7000,250,86,"氮共渗轴承钢","VG68","C3","m5/H7","minimize_power_loss",[("power_loss_w","<=",42,"W"),("L10h",">=",25000,"h")],"boundFiFo"),
- spec("6006","电动工具低载启动后稳态",14000,0,220,50,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_temperature_rise",[("L10h",">=",12000,"h"),("temperature_rise_c","<=",16,"degC")],"boundFo"),
- spec("6006","紧凑电机高载转轴设计点",5800,0,2100,450,79,"渗碳轴承钢","VG68","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",19000,"h")]),
- spec("6208","减速机构高载低速方案",1200,0,9800,750,89,"渗碳轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",35000,"h"),("peak_contact_pressure_mpa","<=",1800,"MPa")],"lockZ"),
- spec("6208","通风机中速定转速点",6800,0,1700,0,65,"氮共渗轴承钢","VG46","CN","k5/H7","minimize_power_loss",[("L10h",">=",28000,"h")],"boundFo"),
- spec("6203","轻型传动电机中速运行",7200,0,620,90,66,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",7,"W"),("L10h",">=",15000,"h")],"boundDpw"),
- spec("6203","微型齿轮组件低速受载",1700,0,1600,210,56,"渗碳轴承钢","VG68","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1650,"MPa")],"lockZ_boundFo"),
- spec("6008","制冷装置风机高速工况",15000,0,650,75,77,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",18,"degC"),("power_loss_w","<=",14,"W")]),
- spec("6008","工业机械中速高载点",4900,0,3900,180,83,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",36000,"h")],"boundFiFo"),
- # Different sizes: 6000 / 6200 / 6300 series from DGBData.db.
- spec("6009","精密风机转轴支承",9700,0,880,160,72,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("L10h",">=",24000,"h"),("temperature_rise_c","<=",25,"degC")]),
- spec("6010","小型水泵连续运行支承",7800,0,1800,250,79,"渗碳轴承钢","VG46","C3","m5/H7","maximize_L10h",[("L10h",">=",32000,"h"),("power_loss_w","<=",34,"W")],"boundFo"),
- spec("6011","轻型机械传动轴承",4200,0,3400,0,68,"渗碳轴承钢","VG68","CN","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1850,"MPa")]),
- spec("6012","设备传动箱辅助支承",3800,0,4300,410,81,"氮共渗轴承钢","VG68","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",38000,"h"),("power_loss_w","<=",40,"W")],"boundFiFo"),
- spec("6200","微型直流驱动轮轴承",13000,0,90,0,50,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",16000,"h")],"boundCurvature"),
- spec("6201","紧凑型清洗泵支承",11000,0,220,45,64,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("L10h",">=",18000,"h"),("temperature_rise_c","<=",20,"degC")],"boundDw"),
- spec("6211","中型电机定速工作点",5200,0,4100,380,76,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",30000,"h")],"lockZ"),
- spec("6212","输送机传动轴支承",2600,0,6800,520,86,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1950,"MPa"),("L10h",">=",26000,"h")],"boundFiFo"),
- spec("6213","工业风机大型辅助转轴",3400,0,4800,0,80,"氮共渗轴承钢","VG46","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",38,"W")],"boundCurvature"),
- spec("6214","中型输油泵负载侧",2100,0,9300,760,92,"渗碳轴承钢","VG100","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",40000,"h"),("peak_contact_pressure_mpa","<=",2200,"MPa")],"boundFo"),
- spec("6300","小型工业电机前端",8200,0,380,60,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",12000,"h")]),
- spec("6301","轻型传动结构径向轴承",6400,0,650,90,62,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",21,"degC")],"boundFo"),
- spec("6302","小型循环装置轴承",5000,0,1400,180,75,"渗碳轴承钢","VG46","C3","m5/H7","maximize_L10h",[("L10h",">=",21000,"h"),("power_loss_w","<=",16,"W")],"boundCurvature"),
- spec("6303","轻型减速器传动端",2900,0,2600,320,82,"渗碳轴承钢","VG68","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1750,"MPa"),("temperature_rise_c","<=",27,"degC")],"boundFiFo"),
- spec("6309","大直径工业风机转子",2800,0,8600,640,85,"氮共渗轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",40000,"h")],"boundCurvature"),
- spec("6310","中型工业搅拌设备",1700,0,12500,1500,96,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",2250,"MPa")],"boundFo"),
- spec("6311","重载传动机构支承",1250,0,16000,1100,94,"渗碳轴承钢","VG100","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",42000,"h"),("power_loss_w","<=",54,"W")],"boundFiFo"),
- spec("6312","大功率工业机械转轴",950,0,17500,0,90,"渗碳轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",45000,"h")],"boundFiFo"),
+ spec("6305","搅拌传动低速大径向载荷",800,0,8290,685,93,"渗碳轴承钢","VG100","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",20000,"h"),("peak_contact_pressure_mpa","<=",2100,"MPa")],"boundFiFo"),
+ spec("6305","大功率风机转轴中速负载点",3500,0,4000,145,86,"氮共渗轴承钢","VG68","C3","m5/H7","minimize_power_loss",[("power_loss_w","<=",42,"W"),("L10h",">=",25000,"h")],"boundFiFo"),
+ spec("6206","电动工具低载启动后稳态",13500,0,220,50,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_temperature_rise",[("L10h",">=",12000,"h"),("temperature_rise_c","<=",16,"degC")],"boundFo"),
+ spec("6205","紧凑电机高载转轴设计点",5800,0,1930,415,79,"渗碳轴承钢","VG68","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",19000,"h")]),
+ spec("6206","减速机构高载低速方案",1200,0,6690,510,89,"渗碳轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",35000,"h"),("peak_contact_pressure_mpa","<=",1800,"MPa")],"lockZ"),
+ spec("6206","通风机中速定转速点",6800,0,1160,0,65,"氮共渗轴承钢","VG46","CN","k5/H7","minimize_power_loss",[("L10h",">=",28000,"h")],"boundFo"),
+ spec("6204","轻型传动电机中速运行",6600,0,620,90,66,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",7,"W"),("L10h",">=",15000,"h")],"boundDpw"),
+ spec("6204","紧凑型齿轮组件低速受载",1600,0,1600,210,56,"渗碳轴承钢","VG68","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1650,"MPa")],"lockZ_boundFo"),
+ spec("6205","制冷装置风机高速工况",15000,0,430,50,77,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",18,"degC"),("power_loss_w","<=",14,"W")]),
+ spec("6205","工业机械中速高载点",4900,0,2610,120,83,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",36000,"h")],"boundFiFo"),
+ # Additional focused 6005 / 6204 / 6205 / 6206 / 6305 envelopes from DGBData.db.
+ spec("6206","精密风机转轴支承",9700,0,660,120,72,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("L10h",">=",24000,"h"),("temperature_rise_c","<=",25,"degC")]),
+ spec("6205","小型水泵连续运行支承",7800,0,940,130,79,"渗碳轴承钢","VG46","C3","m5/H7","maximize_L10h",[("L10h",">=",32000,"h"),("power_loss_w","<=",34,"W")],"boundFo"),
+ spec("6305","轻型机械传动轴承",4200,0,1940,0,68,"渗碳轴承钢","VG68","CN","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1850,"MPa")]),
+ spec("6205","设备传动箱辅助支承",3800,0,1740,165,81,"氮共渗轴承钢","VG68","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",38000,"h"),("power_loss_w","<=",40,"W")],"boundFiFo"),
+ spec("6205","紧凑型直流驱动轮轴承",9400,0,90,0,50,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",16000,"h")],"boundCurvature"),
+ spec("6205","紧凑型清洗泵支承",8300,0,220,45,64,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("L10h",">=",18000,"h"),("temperature_rise_c","<=",20,"degC")],"boundDw"),
+ spec("6206","中型电机定速工作点",5200,0,2000,185,76,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",30000,"h")],"lockZ"),
+ spec("6205","输送机传动轴支承",2600,0,2210,170,86,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1950,"MPa"),("L10h",">=",26000,"h")],"boundFiFo"),
+ spec("6206","工业风机辅助转轴",3400,0,1780,0,80,"氮共渗轴承钢","VG46","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",38,"W")],"boundCurvature"),
+ spec("6206","中型输油泵负载侧",2100,0,3250,265,92,"渗碳轴承钢","VG100","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",40000,"h"),("peak_contact_pressure_mpa","<=",2200,"MPa")],"boundFo"),
+ spec("6205","小型工业电机前端",6300,0,380,60,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",12000,"h")]),
+ spec("6204","轻型传动结构径向轴承",5500,0,650,90,62,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",21,"degC")],"boundFo"),
+ spec("6204","小型循环装置轴承",4600,0,1400,180,75,"渗碳轴承钢","VG46","C3","m5/H7","maximize_L10h",[("L10h",">=",21000,"h"),("power_loss_w","<=",16,"W")],"boundCurvature"),
+ spec("6204","轻型减速器传动端",2800,0,2600,320,82,"渗碳轴承钢","VG68","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1750,"MPa"),("temperature_rise_c","<=",27,"degC")],"boundFiFo"),
+ spec("6305","工业风机转子",2800,0,4200,310,85,"氮共渗轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",40000,"h")],"boundCurvature"),
+ spec("6305","中型工业搅拌设备",1700,0,5290,635,96,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",2250,"MPa")],"boundFo"),
+ spec("6206","重载传动机构支承",1200,0,5940,410,94,"渗碳轴承钢","VG100","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",42000,"h"),("power_loss_w","<=",54,"W")],"boundFiFo"),
+ spec("6205","大功率工业机械转轴",1000,0,4430,0,90,"渗碳轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",45000,"h")],"boundFiFo"),
  # Mixed hard constraints / additional small bearing variants.
- spec("6007","高速送风机受限功耗工况",16500,0,620,90,78,"氮共渗轴承钢","VG32","C3","k5/H7","minimize_power_loss",[("L10h",">=",22000,"h"),("power_loss_w","<=",11,"W"),("temperature_rise_c","<=",23,"degC")],"boundFo"),
- spec("6207","齿轮箱寿命与接触约束设计",3800,0,4600,780,88,"渗碳轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",35000,"h"),("peak_contact_pressure_mpa","<=",1900,"MPa"),("power_loss_w","<=",35,"W")],"lockZ_boundDw"),
+ spec("6005","高速送风机受限功耗工况",16500,0,410,60,78,"氮共渗轴承钢","VG32","C3","k5/H7","minimize_power_loss",[("L10h",">=",22000,"h"),("power_loss_w","<=",11,"W"),("temperature_rise_c","<=",23,"degC")],"boundFo"),
+ spec("6205","齿轮箱寿命与接触约束设计",3800,0,2820,480,88,"渗碳轴承钢","VG100","C3","m5/H7","maximize_L10h",[("L10h",">=",35000,"h"),("peak_contact_pressure_mpa","<=",1900,"MPa"),("power_loss_w","<=",35,"W")],"lockZ_boundDw"),
  spec("6005","小型高速驱动低温升需求",19000,0,380,45,81,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_temperature_rise",[("L10h",">=",16000,"h"),("temperature_rise_c","<=",19,"degC"),("power_loss_w","<=",7,"W")],"boundFiFo"),
- spec("6306","泵轴径向刚度优先设计点",5200,0,4500,680,89,"渗碳轴承钢","VG68","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",31000,"h"),("peak_contact_pressure_mpa","<=",2000,"MPa"),("temperature_rise_c","<=",30,"degC")],"boundFiFo"),
- spec("6209","负载侧轴承综合约束方案",3100,0,7300,660,92,"渗碳轴承钢","VG100","C3","m5/H7","minimize_power_loss",[("L10h",">=",27000,"h"),("power_loss_w","<=",38,"W"),("peak_contact_pressure_mpa","<=",2000,"MPa")],"boundDpw"),
- spec("6003","紧凑电机最高功耗限制",15500,0,220,0,62,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",6,"W"),("temperature_rise_c","<=",18,"degC")],"boundFiFo"),
+ spec("6005","泵轴径向刚度优先设计点",5200,0,2370,360,89,"渗碳轴承钢","VG68","C3","m5/H7","maximize_radial_stiffness",[("L10h",">=",31000,"h"),("peak_contact_pressure_mpa","<=",2000,"MPa"),("temperature_rise_c","<=",30,"degC")],"boundFiFo"),
+ spec("6205","负载侧轴承综合约束方案",3100,0,3490,315,92,"渗碳轴承钢","VG100","C3","m5/H7","minimize_power_loss",[("L10h",">=",27000,"h"),("power_loss_w","<=",38,"W"),("peak_contact_pressure_mpa","<=",2000,"MPa")],"boundDpw"),
+ spec("6005","紧凑电机最高功耗限制",13200,0,220,0,62,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",6,"W"),("temperature_rise_c","<=",18,"degC")],"boundFiFo"),
  spec("6204","中载电机寿命与散热兼顾",8000,0,1250,160,79,"氮共渗轴承钢","VG46","CN","k5/H7","maximize_L10h",[("L10h",">=",24000,"h"),("temperature_rise_c","<=",22,"degC"),("power_loss_w","<=",18,"W")],"boundFo"),
- spec("6307","机械传动端接触压力上限",2600,0,7200,900,91,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1800,"MPa"),("L10h",">=",30000,"h")],"boundFiFo"),
- spec("6202","小型输送机轻载低功耗工况",4000,0,440,70,54,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",8,"W"),("L10h",">=",22000,"h")],"boundDpw"),
- spec("6001","小尺寸高速测试轴承",28000,0,75,5,64,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",14,"degC"),("L10h",">=",12000,"h")],"boundFo"),
- spec("6210","运行效率与寿命双要求",4500,0,5600,300,87,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",36000,"h"),("power_loss_w","<=",32,"W")],"boundFiFo"),
- spec("6304","装配空间受限的旋转驱动",6800,0,1450,240,76,"氮共渗轴承钢","VG46","CN","k5/H7","maximize_radial_stiffness",[("L10h",">=",24000,"h"),("peak_contact_pressure_mpa","<=",1750,"MPa")],"boundFiFo"),
- spec("6002","低载高速仪器轴承方案",18000,0,110,15,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",14000,"h"),("power_loss_w","<=",5,"W")],"boundFo"),
- spec("6212","大型输送机构高载工作点",1900,0,12500,900,95,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",2100,"MPa"),("L10h",">=",28000,"h")],"lockZ_boundDw"),
+ spec("6205","机械传动端接触压力上限",2600,0,3770,470,91,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",1800,"MPa"),("L10h",">=",30000,"h")],"boundFiFo"),
+ spec("6205","小型输送机轻载低功耗工况",3200,0,440,70,54,"氮共渗轴承钢","VG32","CN","k5/H7","minimize_power_loss",[("power_loss_w","<=",8,"W"),("L10h",">=",22000,"h")],"boundDpw"),
+ spec("6204","紧凑型高速测试轴承",21600,0,75,5,64,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_temperature_rise",[("temperature_rise_c","<=",14,"degC"),("L10h",">=",12000,"h")],"boundFo"),
+ spec("6204","运行效率与寿命双要求",4500,0,2110,115,87,"渗碳轴承钢","VG68","C3","m5/H7","maximize_L10h",[("L10h",">=",36000,"h"),("power_loss_w","<=",32,"W")],"boundFiFo"),
+ spec("6204","装配空间受限的旋转驱动",6800,0,1250,205,76,"氮共渗轴承钢","VG46","CN","k5/H7","maximize_radial_stiffness",[("L10h",">=",24000,"h"),("peak_contact_pressure_mpa","<=",1750,"MPa")],"boundFiFo"),
+ spec("6205","低载高速仪器轴承方案",14100,0,110,15,58,"氮共渗轴承钢","VG22","CN","k5/H7","minimize_power_loss",[("L10h",">=",14000,"h"),("power_loss_w","<=",5,"W")],"boundFo"),
+ spec("6205","输送机构高载工作点",1900,0,4060,295,95,"渗碳轴承钢","VG100","C3","m5/H7","minimize_peak_contact_pressure",[("peak_contact_pressure_mpa","<=",2100,"MPa"),("L10h",">=",28000,"h")],"lockZ_boundDw"),
 ]
 assert len(CASES)==80, f"Expected 80 design cases, got {len(CASES)}"
+from collections import Counter
+FOCUSED_MODEL_COUNTS = {'6205':30,'6204':15,'6206':15,'6005':10,'6305':10}
+assert Counter(c['model'] for c in CASES) == FOCUSED_MODEL_COUNTS, 'focused 80-model allocation changed'
+
+# The library's 主参数 rows are NOT available for 6005/6305. They must not
+# receive locked Z or Dw/Dpw bounds derived from unavailable catalog geometry.
+NO_REFERENCE_GEOMETRY={'6005','6305'}
+REQUIRES_REFERENCE_GEOMETRY={'lockZ','boundDw','boundDpw','lockZ_boundDw','lockZ_boundFo'}
+assert all(c['model'] not in NO_REFERENCE_GEOMETRY or c['opt'] not in REQUIRES_REFERENCE_GEOMETRY
+           for c in CASES), 'a reference-dependent variable constraint lacks a source' 
 
 # Ten distinct single-message linguistic styles, eight cases per style.
 LANGUAGE_STYLES = [
@@ -386,6 +402,10 @@ def generate(archive: Path) -> tuple[int,int]:
         (DATA/'data'/name).write_text(''.join(json.dumps(row,ensure_ascii=False,separators=(',',':'))+'\n' for row in rows),encoding='utf-8')
     with (DATA/'review'/'case_review.csv').open('w',encoding='utf-8-sig',newline='') as f:
         writer=csv.DictWriter(f,fieldnames=list(review[0]));writer.writeheader();writer.writerows(review)
+    if Counter(s['model'] for s in CASES)!=FOCUSED_MODEL_COUNTS:
+        raise ValueError('focused model distribution changed')
+    if Counter(r['language_style'] for r in requests)!={s:8 for s in LANGUAGE_STYLES}:
+        raise ValueError('language-style distribution changed')
     return len(design),len(requests)
 
 if __name__=='__main__':

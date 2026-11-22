@@ -19,6 +19,8 @@ from jsonschema import Draft202012Validator
 
 ROOT=Path(__file__).resolve().parents[1]/'DGB_Design_Dataset'
 VARIABLES={'Dw_mm','Z','Dpw_mm','fi','fo'}
+FOCUSED_MODEL_COUNTS={'6205':30,'6204':15,'6206':15,'6005':10,'6305':10}
+FOCUSED_OBJECTIVES={'minimize_power_loss','maximize_L10h','minimize_temperature_rise','minimize_peak_contact_pressure','maximize_radial_stiffness'}
 STYLES={'工程技术交底','日常口语','项目委托','参数清单','目标先行','简明压缩','约束先行','现场说明','设计复核','工况先行'}
 MAT='RoBAS_Resources/Resource/materialDB.csv'
 LUB='RoBAS_Resources/Resource/lubricantDB.csv'
@@ -153,10 +155,23 @@ def verified_catalog(cases,archive):
 def main():
   p=argparse.ArgumentParser()
   p.add_argument('--robas-archive',type=Path,help='RoBAS_Resources.zip to independently recheck SHA, DB and CSV rows')
+  p.add_argument('--focused-80',action='store_true',help='Enforce five-model 80-case study distribution and coverage')
   args=p.parse_args()
   cases=load(ROOT/'data'/'design_cases.jsonl');requests=load(ROOT/'data'/'user_requests.jsonl')
   schema=json.loads((ROOT/'schema'/'DGBCase_v2.schema.json').read_text(encoding='utf-8'))
   n,m=offline(cases,requests,schema)
+  if args.focused_80:
+    counts=Counter(c['bearing']['reference_model'] for c in cases)
+    if counts != FOCUSED_MODEL_COUNTS: fail(f'focused model distribution mismatch: {counts}')
+    style_counts=Counter(r['language_style'] for r in requests)
+    if style_counts!={k:8 for k in STYLES}:fail(f'focused language style distribution mismatch: {style_counts}')
+    for model in FOCUSED_MODEL_COUNTS:
+      goals={c['requirements']['objective'] for c in cases if c['bearing']['reference_model']==model}
+      if goals!=FOCUSED_OBJECTIVES:fail(f'focused model {model} lacks objective coverage: {goals}')
+      if model in {'6005','6305'}:
+        if any('Z' in c['optimization']['locked'] or any(k in c['optimization']['bounds'] for k in ('Dw_mm','Dpw_mm')) for c in cases if c['bearing']['reference_model']==model):
+          fail(f'focused model {model} has a reference-derived internal geometry without an available 主参数 row')
+    print('FOCUSED_80_PROFILE_PASS:',dict(counts))
   with (ROOT/'review'/'case_review.csv').open(encoding='utf-8-sig',newline='') as f:
     review=list(csv.DictReader(f))
   if len(review)!=n or {x['case_id'] for x in review}!={x['case_id'] for x in cases}:
