@@ -64,6 +64,23 @@ def test_cn_c3_concept_does_not_invent_numeric_clearance():
     assert any("未提供" in item for item in record["limitations"])
 
 
+
+def test_fit_and_grease_concepts_have_sources_but_not_specific_values():
+    repo = KnowledgeRepository()
+    fit = repo.lookup("fit", "6206轴承内外圈配合原则")
+    grease = repo.lookup("lubrication", "脂润滑为什么容易密封？")
+    assert fit["status"] == "FOUND"
+    assert grease["status"] == "FOUND"
+    assert fit["results"][0]["source"]["publisher"] == "NTN Americas"
+    assert grease["results"][0]["source"]["publisher"] == "SKF"
+    for result in (fit, grease):
+        record = result["results"][0]
+        assert record["review_status"] == "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED"
+        assert record["limitations"]
+        assert all(not isinstance(x["value"], (int, float)) for x in record["facts"])
+
+
+
 def test_missing_or_invalid_queries_never_return_unreviewed_values():
     repo = KnowledgeRepository()
     for topic, query in (
