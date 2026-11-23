@@ -92,6 +92,12 @@
             "axial_load_direction": {
               "type": "string",
               "minLength": 1
+            },
+            "ambient_temperature_c": {
+              "type": "number",
+              "minimum": -50,
+              "maximum": 100,
+              "description": "Synthetic environmental reference temperature for requested rise metrics; not a verified thermal boundary model."
             }
           },
           "required": [
@@ -603,13 +609,62 @@
                     "key_column"
                   ],
                   "additionalProperties": false
+                },
+                "reference_performance": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "const": "RoBAS_Resources/Data/bearing.db"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "table": {
+                      "const": "T_SKFA01"
+                    },
+                    "row_type_suffix": {
+                      "const": " *"
+                    }
+                  },
+                  "required": [
+                    "file",
+                    "sha256",
+                    "table",
+                    "row_type_suffix"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
                 "resource_archive_sha256",
                 "model",
                 "materials",
-                "lubricants"
+                "lubricants",
+                "reference_performance"
+              ],
+              "additionalProperties": false
+            },
+            "reference_performance": {
+              "type": "object",
+              "properties": {
+                "C_kN": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "C0_kN": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "nmax_rpm": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "C_kN",
+                "C0_kN",
+                "nmax_rpm"
               ],
               "additionalProperties": false
             }
@@ -618,7 +673,8 @@
             "model_record",
             "materials",
             "lubricants",
-            "sources"
+            "sources",
+            "reference_performance"
           ],
           "additionalProperties": false
         },
@@ -643,6 +699,45 @@
             },
             "note": {
               "type": "string"
+            },
+            "reference_screen": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "REFERENCE_ONLY_NOT_ENGINEERING_APPROVED"
+                },
+                "speed_ratio": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "life_min_C_ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "fr_to_reference_C0_ratio": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "scenario_revised": {
+                  "type": "boolean"
+                },
+                "limitations": {
+                  "type": "string",
+                  "minLength": 10
+                }
+              },
+              "required": [
+                "status",
+                "speed_ratio",
+                "life_min_C_ratio",
+                "fr_to_reference_C0_ratio",
+                "scenario_revised",
+                "limitations"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
@@ -650,7 +745,8 @@
             "catalog_verified",
             "engineering_reviewed",
             "solver_verified",
-            "note"
+            "note",
+            "reference_screen"
           ],
           "additionalProperties": false
         }

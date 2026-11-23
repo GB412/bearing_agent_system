@@ -13,6 +13,7 @@ import math
 import sqlite3
 import tempfile
 import zipfile
+from generate_dgb_cases_v2 import assemble_request, screen_synthetic_case, CASES
 from collections import Counter
 from pathlib import Path
 from jsonschema import Draft202012Validator
@@ -25,6 +26,7 @@ STYLES={'工程技术交底','日常口语','项目委托','参数清单','目�
 MAT='RoBAS_Resources/Resource/materialDB.csv'
 LUB='RoBAS_Resources/Resource/lubricantDB.csv'
 MODEL='RoBAS_Resources/Data/DGBData.db'
+PERFORMANCE='RoBAS_Resources/Data/bearing.db'
 MATERIAL_MAP={
   'elastic_modulus_pa':'elsaModules(Pa)',
   'density_kg_m3':'density(kg/m3)',
@@ -84,6 +86,15 @@ def offline(cases,requests,schema):
     if not c['quality']['catalog_verified'] or c['quality']['engineering_reviewed'] or c['quality']['solver_verified']:
       fail(f'{cid}: unverifiable quality claims')
     text=rmap[cid]['text']
+    # These 80 texts are deterministic generated reference utterances: strict
+    # reproduction catches ANY changed numeric token, unit, inequality or Z lock.
+    # The former substring checks alone accepted Fr=300 -> Fr=3000 and <= -> >=.
+    index=int(cid.split('-')[-1])
+    if index<1 or index>len(CASES):fail(f'{cid}: unexpected case index')
+    style,rendered=assemble_request(c,index)
+    if rmap[cid]['language_style']!=style or text!=rendered:
+      fail(f'{cid}: natural language differs from exact case rendering (value/unit/constraint/optimization mismatch)')
+    check_reference_screen(c)
     must=[c['bearing']['reference_model'],str(d['d_mm']),str(d['D_mm']),str(d['B_mm']),str(op['inner_speed_rpm']),
           str(op['radial_load_n']),str(op['axial_load_n']),str(op['temperature_c']),en['inner_ring_material'],
           en['ball_material'],en['cage_material'],en['cage_type'],en['lubricant'],en['clearance_group'],
@@ -110,29 +121,75 @@ def offline(cases,requests,schema):
     if not all('csv_line' in value for value in data['materials'].values()):fail(f'{cid}: material evidence missing')
   return len(cases),len(requests)
 
+def check_reference_screen(c):
+  cid=c['case_id'];perf=c['robas_data']['reference_performance'];s=c['quality']['reference_screen']
+  if any(perf[k]<=0 for k in perf):fail(f'{cid}: invalid reference performance')
+  n=c['operating']['inner_speed_rpm'];fr=c['operating']['radial_load_n']
+  if abs(s['speed_ratio']-round(n/perf['nmax_rpm'],5))>1e-8:fail(f'{cid}: speed ratio inconsistent')
+  if abs(s['fr_to_reference_C0_ratio']-round(fr/(1000*perf['C0_kN']),5))>1e-8:fail(f'{cid}: static ratio inconsistent')
+  life=[x['value'] for x in c['requirements']['constraints'] if x['metric']=='L10h']
+  life_ratio=round(fr*(60*n*life[0]/1e6)**(1/3)/(perf['C_kN']*1000),5) if life else None
+  if s['life_min_C_ratio'] != life_ratio:fail(f'{cid}: life reference ratio inconsistent')
+  if s['speed_ratio']>0.90001 or s['fr_to_reference_C0_ratio']>0.47001 or (life_ratio is not None and life_ratio>0.75001):
+      fail(f'{cid}: severe reference screen red flag')
+  if ('minimize_temperature_rise'==c['requirements']['objective'] or any(x['metric']=='temperature_rise_c' for x in c['requirements']['constraints'])):
+      if 'ambient_temperature_c' not in c['operating']:fail(f'{cid}: temperature-rise reference missing')
+      if c['operating']['ambient_temperature_c']>=c['operating']['temperature_c']:fail(f'{cid}: reference ambient not below initial estimated bearing temperature')
+
 def verified_catalog(cases,archive):
   with zipfile.ZipFile(archive) as z:
-    mb,lb,db=(z.read(p) for p in (MAT,LUB,MODEL))
+    mb,lb,db,pb=(z.read(p) for p in (MAT,LUB,MODEL,PERFORMANCE))
   archive_sha=digest(archive.read_bytes())
   mats=list(enumerate(csv.DictReader(io.StringIO(mb.decode('utf-8-sig'))),start=2))
   lubs=list(enumerate(csv.DictReader(io.StringIO(lb.decode('utf-8-sig'))),start=2))
   with tempfile.NamedTemporaryFile(suffix='.db') as t:
     t.write(db);t.flush();con=sqlite3.connect(t.name)
     model_results={c['bearing']['reference_model']:con.execute('select model,d,Dd,B,rsmin from model where model=?',(c['bearing']['reference_model'],)).fetchall() for c in cases}
-    ref_z={c['bearing']['reference_model']:con.execute('select Z from "主参数" where model=?',(c['bearing']['reference_model'],)).fetchall() for c in cases}
+    ref_z={c['bearing']['reference_model']:con.execute('select Dw,Z,Dwp from "主参数" where model=?',(c['bearing']['reference_model'],)).fetchall() for c in cases}
     con.close()
+  with tempfile.NamedTemporaryFile(suffix='.db') as t:
+    t.write(pb);t.flush();pc=sqlite3.connect(t.name)
+    perf_results={c['bearing']['reference_model']:pc.execute('SELECT d,D_,B,C,C0,nmax FROM T_SKFA01 WHERE Type=?',(c['bearing']['reference_model']+' *',)).fetchall() for c in cases}
+    pc.close()
   for c in cases:
     cid=c['case_id'];meta=c['robas_data']['sources'];m=c['robas_data']['model_record']
     if meta['resource_archive_sha256']!=archive_sha:fail(f'{cid}: RoBAS archive SHA mismatch')
-    if meta['materials']['sha256']!=digest(mb) or meta['lubricants']['sha256']!=digest(lb) or meta['model']['sha256']!=digest(db):
+    if meta['materials']['sha256']!=digest(mb) or meta['lubricants']['sha256']!=digest(lb) or meta['model']['sha256']!=digest(db) or meta['reference_performance']['sha256']!=digest(pb):
       fail(f'{cid}: catalog file SHA mismatch')
     matches=model_results[c['bearing']['reference_model']]
     if len(matches)!=1 or tuple(matches[0]) != (m['model'],m['d_mm'],m['D_mm'],m['B_mm'],m['rsmin_mm']):
       fail(f'{cid}: RoBAS model row mismatch')
+    prs=perf_results[c['bearing']['reference_model']]
+    if len(prs)!=1:fail(f'{cid}: missing/ambiguous reference performance')
+    row=prs[0]; p=c['robas_data']['reference_performance']
+    if tuple(float(x) for x in row[:3]) != (float(m['d_mm']),float(m['D_mm']),float(m['B_mm'])) or any(not math.isclose(float(row[i]),p[k],rel_tol=1e-12) for i,k in [(3,'C_kN'),(4,'C0_kN'),(5,'nmax_rpm')]):
+      fail(f'{cid}: mismatched original RoBAS performance catalog row')
+    # Source-generated design must correspond to screen-adjusted synthetic scenario.
+    idx=int(cid.split('-')[-1]);raw=CASES[idx-1]
+    expected,screen=screen_synthetic_case(raw,p)
+    op=c['operating']
+    if (expected['model']!=c['bearing']['reference_model'] or expected['app']!=c['bearing']['application'] or any(op[k]!=expected[v] for k,v in [('inner_speed_rpm','ni'),('outer_speed_rpm','no'),('radial_load_n','fr'),('axial_load_n','fa'),('temperature_c','temp')])):
+      fail(f'{cid}: scenario deviates from reproducible source spec')
+    if c['quality']['reference_screen']!=screen:fail(f'{cid}: screen metadata deviates from source spec')
     if 'Z' in c['optimization']['locked']:
       zrows=ref_z[c['bearing']['reference_model']]
-      if len(zrows)!=1 or int(zrows[0][0])!=c['optimization']['locked']['Z']:
+      if len(zrows)!=1 or int(zrows[0][1])!=c['optimization']['locked']['Z']:
         fail(f'{cid}: Z lock not matched in RoBAS 主参数 table')
+    # Necessary envelope/ball-spacing screen near reference geometry; not
+    # a full CAD assembly or a proof that every free Z choice is feasible.
+    geo=ref_z[c['bearing']['reference_model']]
+    if len(geo)==1:
+      dw_ref,z_ref,dp_ref=map(float,geo[0])
+      opt=c['optimization']
+      dw_hi=opt['bounds'].get('Dw_mm',{}).get('max',dw_ref)
+      dp_lo=opt['bounds'].get('Dpw_mm',{}).get('min',dp_ref)
+      dp_hi=opt['bounds'].get('Dpw_mm',{}).get('max',dp_ref)
+      if dp_lo-dw_hi<=m['d_mm'] or dp_hi+dw_hi>=m['D_mm']:
+        fail(f'{cid}: reference-neighborhood rolling element envelope intersects rings')
+      if 'Z' in opt['locked'] and dp_lo*math.sin(math.pi/opt['locked']['Z'])<=dw_hi:
+        fail(f'{cid}: locked Z conflicts with ball chord clearance')
+    elif any(k in c['optimization']['bounds'] for k in ('Dw_mm','Dpw_mm')) or 'Z' in c['optimization']['locked']:
+      fail(f'{cid}: reference-dependent geometric restriction without original geometry')
     for name,values in c['robas_data']['materials'].items():
       found=[(i,row) for i,row in mats if row['materialName']==name]
       if len(found)!=1 or found[0][0]!=values['csv_line']:fail(f'{cid}: unknown material or wrong csv line: {name}')
@@ -176,6 +233,34 @@ def main():
     review=list(csv.DictReader(f))
   if len(review)!=n or {x['case_id'] for x in review}!={x['case_id'] for x in cases}:
     fail('review CSV mismatch')
+  cmap={x['case_id']:x for x in cases};rmap={x['case_id']:x for x in requests}
+  for row in review:
+    c=cmap[row['case_id']];op=c['operating'];dim=c['dimensions'];screen=c['quality']['reference_screen']
+    expected={
+      'application':c['bearing']['application'],'reference_model':c['bearing']['reference_model'],
+      'd_mm':dim['d_mm'],'D_mm':dim['D_mm'],'B_mm':dim['B_mm'],
+      'inner_speed_rpm':op['inner_speed_rpm'],'outer_speed_rpm':op['outer_speed_rpm'],
+      'Fr_N':op['radial_load_n'],'Fa_N':op['axial_load_n'],'temperature_c':op['temperature_c'],
+      'objective':c['requirements']['objective'],'language_style':rmap[row['case_id']]['language_style'],
+      'reference_C_kN':c['robas_data']['reference_performance']['C_kN'],
+      'reference_nmax_rpm':c['robas_data']['reference_performance']['nmax_rpm'],
+      'speed_to_reference_nmax_ratio':screen['speed_ratio'],
+      'fr_to_reference_C0_ratio':screen['fr_to_reference_C0_ratio'],
+      'original_speed_rpm':CASES[int(row['case_id'].split('-')[-1])-1]['ni'],
+      'original_Fr_N':CASES[int(row['case_id'].split('-')[-1])-1]['fr'],
+      'original_Fa_N':CASES[int(row['case_id'].split('-')[-1])-1]['fa'],
+      'reference_screen_status':screen['status'],
+      'scenario_revised_by_screen':'YES' if screen['scenario_revised'] else 'NO',
+    }
+    for k,val in expected.items():
+      if str(row[k])!=str(val) and not (isinstance(val,(int,float)) and math.isclose(float(row[k]),float(val),rel_tol=1e-12,abs_tol=1e-12)):
+        fail(f"review CSV {row['case_id']} mismatch in {k}: {row[k]} != {val}")
+    raw=CASES[int(row['case_id'].split('-')[-1])-1]
+    if row['optimization_mode']!=raw['opt']:fail('review CSV optimization mode mismatch')
+    if (row['thermal_model_status']=='PENDING') != ('ambient_temperature_c' in op):fail('review CSV thermal status mismatch')
+    if str(row['min_load_life_C_to_reference_C_ratio']) != str(screen['life_min_C_ratio']) and not (row['min_load_life_C_to_reference_C_ratio']=='' and screen['life_min_C_ratio'] is None):
+      fail('review CSV life screen mismatch')
+
   print(f'STRUCTURE_AND_CROSSFILE_PASS: {n} design cases, {m} natural-language requests, {len(review)} review rows')
   print('OBJECTIVES:',dict(Counter(x['requirements']['objective'] for x in cases)))
   print('LANGUAGE_STYLES:',dict(Counter(x['language_style'] for x in requests)))

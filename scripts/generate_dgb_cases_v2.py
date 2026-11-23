@@ -8,6 +8,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import math
 import json
 import sqlite3
 import tempfile
@@ -20,6 +21,7 @@ VARIABLES = ["Dw_mm", "Z", "Dpw_mm", "fi", "fo"]
 MAT_PATH = "RoBAS_Resources/Resource/materialDB.csv"
 LUB_PATH = "RoBAS_Resources/Resource/lubricantDB.csv"
 MODEL_PATH = "RoBAS_Resources/Data/DGBData.db"
+PERFORMANCE_PATH = "RoBAS_Resources/Data/bearing.db"
 RING_MATERIALS = {"氮共渗轴承钢", "渗碳轴承钢"}
 CAGE_MATERIAL = "工具钢"
 LUBRICANTS = {"VG22", "VG32", "VG46", "VG68", "VG100"}
@@ -154,9 +156,9 @@ OBJECTIVES = {
 }
 CONSTRAINTS = {
  "L10h":lambda n,u:f"额定寿命L10h不低于{n:g}小时",
- "power_loss_w":lambda n,u:f"摩擦功耗希望不超过{n:g} W",
- "temperature_rise_c":lambda n,u:f"温升希望不超过{n:g}℃",
- "peak_contact_pressure_mpa":lambda n,u:f"峰值接触压力希望不超过{n:g} MPa",
+ "power_loss_w":lambda n,u:f"摩擦功耗必须不超过{n:g} W",
+ "temperature_rise_c":lambda n,u:f"相对环境的轴承温升必须不超过{n:g}℃",
+ "peak_contact_pressure_mpa":lambda n,u:f"峰值接触压力必须不超过{n:g} MPa",
 }
 
 def sha(data: bytes) -> str:
@@ -185,7 +187,9 @@ def assemble_request(c, idx):
         fa=f"轴向载荷Fa=0 N（明确没有轴向载荷）"
     else:
         fa=f"轴向载荷Fa={op['axial_load_n']:g} N（沿轴线由电机侧指向负载侧）"
-    tmp=f"假定轴承工作温度{op['temperature_c']:g}℃"
+    tmp=f"初步假定轴承分析温度{op['temperature_c']:g}℃（非优化计算结果）"
+    if 'ambient_temperature_c' in op:
+        tmp += f"，环境参考温度{op['ambient_temperature_c']:g}℃（最终温升仍需热模型计算）"
     directions='径向载荷方向竖直向下；从电机侧观察内圈顺时针旋转'
     materials=(f"内、外圈和钢球均选RoBAS目录中的{en['inner_ring_material']}，"
                f"保持架为{en['cage_type']}、材料{en['cage_material']}")
@@ -202,7 +206,7 @@ def assemble_request(c, idx):
         units=' mm' if key in ('Dw_mm','Dpw_mm') else ''
         restrictions.append(f"{labels[key]}限制在{bd['min']:g}至{bd['max']:g}{units}")
     if restrictions:
-        optimization='；'.join(restrictions)+'；其他未锁定的变量从Dw、Z、Dpw、fi、fo中优化确定'
+        optimization='；'.join(restrictions)+'；实际待优化变量为'+ '、'.join({'Dw_mm':'Dw','Z':'Z','Dpw_mm':'Dpw','fi':'fi','fo':'fo'}[v] for v in opt['variables'])+'；锁定参数不再参与优化'
     else:
         optimization='Dw、Z、Dpw、fi、fo这五个内部结构参数全部留给后续优化'
     caution='这些材料、润滑、保持架、游隙和配合仅是待审核的选择，须核实工程适用性，不等于已通过RoBAS求解。'
@@ -265,9 +269,53 @@ def assemble_request(c, idx):
 
 
 
+def screen_synthetic_case(raw: dict, catalog: dict) -> tuple[dict,dict]:
+    """Replace implausibly severe SYNTHETIC inputs using catalog references.
+
+    Fr is merely a life-proxy lower bound for P; C/C0/nmax refer to a catalog
+    bearing, not an optimized custom internal geometry. Passing this filter
+    NEVER certifies engineering feasibility, equivalent load, or solver readiness.
+    """
+    s=raw.copy()
+    nmax=float(catalog['nmax_rpm'])
+    # Avoid exceeding 90% of the catalog nmax reference in baseline examples.
+    h=hashlib.sha256((raw['model']+'|'+raw['app']).encode('utf-8')).digest()
+    life_screen_cap=0.38 + 0.37*(int.from_bytes(h[:4],'big')/0xffffffff)
+    static_screen_cap=0.33 + 0.14*(int.from_bytes(h[4:8],'big')/0xffffffff)
+    speed_screen_cap=0.80 + 0.10*(int.from_bytes(h[8:12],'big')/0xffffffff)
+    s['ni']=min(raw['ni'],int(nmax*speed_screen_cap//100)*100)
+    speed=s['ni']
+    max_fr=static_screen_cap*catalog['C0_kN']*1000 # crude radial/static load screen
+    life=[c[2] for c in raw['cons'] if c[0]=='L10h']
+    if life:
+        life_factor=(60*speed*life[0]/1e6)**(1/3)
+        max_fr=min(max_fr,life_screen_cap*catalog['C_kN']*1000/life_factor)
+    # The superseded high-risk synthetic point is replaced, not relabeled as feasible.
+    s['fr']=min(raw['fr'],max(10,int(max_fr//10)*10))
+    if s['fr']!=raw['fr']:
+        s['fa']=int(round(raw['fa']*s['fr']/raw['fr']))
+    else:
+        s['fa']=raw['fa']
+    s['fa']=max(0,s['fa'])
+    speed_ratio=round(s['ni']/nmax,5)
+    life_ratio=round(s['fr']*(60*s['ni']*life[0]/1e6)**(1/3)/(catalog['C_kN']*1000),5) if life else None
+    static_ratio=round(s['fr']/(catalog['C0_kN']*1000),5)
+    revised=any(s[x]!=raw[x] for x in ('ni','fr','fa'))
+    # This is only a reference screen; no empirical feasibility labels are created.
+    screen={
+      'status':'REFERENCE_ONLY_NOT_ENGINEERING_APPROVED',
+      'speed_ratio':speed_ratio,
+      'life_min_C_ratio':life_ratio,
+      'fr_to_reference_C0_ratio':static_ratio,
+      'scenario_revised':revised,
+      'limitations':'Fr代替等效动载荷的粗略下界筛查；未求P、未验证自定义几何、润滑/温升/性能约束与可行解。'
+    }
+    return s,screen
+
+
 def generate(archive: Path) -> tuple[int,int]:
     with zipfile.ZipFile(archive) as z:
-        matb,lubb,dbb=(z.read(path) for path in (MAT_PATH,LUB_PATH,MODEL_PATH))
+        matb,lubb,dbb,perfb=(z.read(path) for path in (MAT_PATH,LUB_PATH,MODEL_PATH,PERFORMANCE_PATH))
     mats=list(enumerate(csv.DictReader(io.StringIO(matb.decode("utf-8-sig"))),start=2))
     lubs=list(enumerate(csv.DictReader(io.StringIO(lubb.decode("utf-8-sig"))),start=2))
     with tempfile.NamedTemporaryFile(suffix=".db") as tmp:
@@ -278,6 +326,19 @@ def generate(archive: Path) -> tuple[int,int]:
                 for s in CASES}
         base_ref={s['model']:con.execute('select Dw,Z,Dwp from "主参数" where model=?',(s['model'],)).fetchone() for s in CASES}
         con.close()
+    with tempfile.NamedTemporaryFile(suffix='.db') as perf_tmp:
+        perf_tmp.write(perfb);perf_tmp.flush()
+        pc=sqlite3.connect(perf_tmp.name)
+        perf_ref={}
+        for model in FOCUSED_MODEL_COUNTS:
+            rows=pc.execute('SELECT Type,d,D_,B,C,C0,nmax FROM T_SKFA01 WHERE Type=?',(model+' *',)).fetchall()
+            if len(rows)!=1:
+                raise ValueError(f'Missing or ambiguous performance catalog reference for {model}')
+            r=rows[0]
+            if tuple(float(x) for x in r[1:4]) != (float(models[model]['d']),float(models[model]['Dd']),float(models[model]['B'])):
+                raise ValueError(f'Performance catalog dimension mismatch: {model}')
+            perf_ref[model]={'C_kN':float(r[4]),'C0_kN':float(r[5]),'nmax_rpm':float(r[6])}
+        pc.close()
     mat_ids=set().union(*(set([s['ring'],CAGE_MATERIAL]) for s in CASES))
     lub_ids={s['lub'] for s in CASES}
     if not mat_ids<=RING_MATERIALS|{CAGE_MATERIAL} or not lub_ids<=LUBRICANTS:
@@ -313,10 +374,12 @@ def generate(archive: Path) -> tuple[int,int]:
        'model':{'file':MODEL_PATH,'sha256':sha(dbb),'table':'model','key_column':'model'},
        'materials':{'file':MAT_PATH,'sha256':sha(matb),'key_column':'materialName'},
        'lubricants':{'file':LUB_PATH,'sha256':sha(lubb),'key_column':'oilName'},
+       'reference_performance':{'file':PERFORMANCE_PATH,'sha256':sha(perfb),'table':'T_SKFA01','row_type_suffix':' *'},
     }
     design=[]; requests=[]; review=[]
-    for idx,s in enumerate(CASES,1):
-        mid=s['model']; m=models[mid]
+    for idx,raw in enumerate(CASES,1):
+        mid=raw['model']; m=models[mid]
+        s,screen=screen_synthetic_case(raw,perf_ref[mid])
         if not m or tuple(m.keys()) != ('model','d','Dd','B','rsmin'):
             raise ValueError(f"bad model record {mid}")
         if s['fr']<0 or s['fa']<0 or s['ni']<0 or s['no']<0 or s['ni']==s['no']:
@@ -358,6 +421,8 @@ def generate(archive: Path) -> tuple[int,int]:
          'rotation_direction':'从电机侧观察内圈顺时针旋转，外圈固定',
          'radial_load_direction':'竖直向下','axial_load_direction':fa_dir
         }
+        if s['obj']=='minimize_temperature_rise' or any(con[0]=='temperature_rise_c' for con in s['cons']):
+            op['ambient_temperature_c']=max(18,min(32,int(s['temp'])-30))
         ring=s['ring'];en={
           'inner_ring_material':ring,'outer_ring_material':ring,'ball_material':ring,
           'cage_type':'StampingCage','cage_material':CAGE_MATERIAL,
@@ -374,6 +439,7 @@ def generate(archive: Path) -> tuple[int,int]:
           'optimization':o,
           'robas_data':{
              'model_record':{'model':mid,**dim,'rsmin_mm':m['rsmin']},
+             'reference_performance':{**perf_ref[mid]},
              'materials':{k:mats_dict[k] for k in sorted({ring,CAGE_MATERIAL})},
              'lubricants':{s['lub']:lub_dict[s['lub']]},'sources':{
                  **source,'model':{**source['model'],'key':mid}
@@ -382,6 +448,7 @@ def generate(archive: Path) -> tuple[int,int]:
           'quality':{
             'scenario_origin':'synthetic','catalog_verified':True,
             'engineering_reviewed':False,'solver_verified':False,
+            'reference_screen':screen,
             'note':'原始RoBAS型号、材料、润滑记录已核实；具体配置适用性、速度极限、游隙/配合及约束可评估性均未工程审核。'
           }
         }
@@ -395,8 +462,17 @@ def generate(archive: Path) -> tuple[int,int]:
           'inner_speed_rpm':s['ni'],'outer_speed_rpm':s['no'],
           'Fr_N':s['fr'],'Fa_N':s['fa'],'temperature_c':s['temp'],
           'objective':s['obj'],'optimization_mode':s['opt'],'language_style':style,
+          'reference_C_kN':perf_ref[mid]['C_kN'],
+          'reference_nmax_rpm':perf_ref[mid]['nmax_rpm'],
+          'speed_to_reference_nmax_ratio':screen['speed_ratio'],
+          'min_load_life_C_to_reference_C_ratio':screen['life_min_C_ratio'],
+          'fr_to_reference_C0_ratio':screen['fr_to_reference_C0_ratio'],
+          'original_speed_rpm':raw['ni'],'original_Fr_N':raw['fr'],'original_Fa_N':raw['fa'],
+          'scenario_revised_by_screen': 'YES' if screen['scenario_revised'] else 'NO',
+          'reference_screen_status':screen['status'],
+          'thermal_model_status':'PENDING' if 'ambient_temperature_c' in op else 'NOT_REQUESTED',
           'catalog_verified':'YES','engineering_reviewed':'NO','solver_verified':'NO',
-          'review_notes':'固定设计条件与性能目标为合成测试情境；RoBAS目录匹配不等于性能、材料组合或计算模型适用性验证'
+          'review_notes':'合成场景；目录C/C0/nmax仅用于异常输入初筛，不是等效动载荷求解或工程可行性证明；热模型/配合/结构适用性仍待审核'
         })
     for name,rows in [('design_cases.jsonl',design),('user_requests.jsonl',requests)]:
         (DATA/'data'/name).write_text(''.join(json.dumps(row,ensure_ascii=False,separators=(',',':'))+'\n' for row in rows),encoding='utf-8')
