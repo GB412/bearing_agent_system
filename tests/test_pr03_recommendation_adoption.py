@@ -1,4 +1,5 @@
-"""PR-03: explicit CN choices, scoped recommendations, trusted adoption."""
+"""PR-03: scoped recommendation/adoption for retained engineering choices."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -26,60 +27,52 @@ def tool(service, message, *, session="s", turn_id="turn"):
                      user_message=message)
 
 
-def propose_fits(turn):
+def propose_lubrication(turn):
     return turn.tools()[0].invoke({
         "operation": "propose", "changes": [
-            {"path": "engineering.fits.inner_ring", "value": "k6"},
-            {"path": "engineering.fits.outer_ring", "value": "H7"},
+            {"path": "engineering.lubrication.mode", "value": "grease"},
         ],
     })
 
 
-@pytest.mark.parametrize("message", ["游隙组别CN", "游隙组别确认CN", "游隙等级为CN"])
-def test_clearance_explicit_user_choice_is_saved(environment, message):
-    service, _ = environment
-    batch = UpdateBatch.model_validate({
-        "operation": "set",
-        "changes": [{"path": "engineering.clearance.group", "value": "CN",
-                     "evidence_span": message}],
-    })
-    out = service.update_design_brief(
-        "s", batch, TrustedContext(message_id="c1", user_message=message)
-    )
-    assert not out.rejected_changes
-    assert service.get_brief("s")[0].engineering.clearance.group.value == "CN"
-
-
-@pytest.mark.parametrize("message", [
-    "游隙组别CN是什么意思？", "CN和C3哪个更好？",
-    "不要采用CN", "不确认CN", "不要确认CN", "我还没确定游隙，想了解CN",
+@pytest.mark.parametrize("path,value,message", [
+    ("engineering.clearance.group", "CN", "游隙组别CN"),
+    ("engineering.clearance.initial_radial_clearance_mm", 0.01, "游隙0.01mm"),
+    ("engineering.fits.inner_ring", "k6", "内圈配合k6"),
+    ("engineering.fits.outer_ring", "H7", "外圈配合H7"),
 ])
-def test_questions_and_negations_cannot_fake_cn_confirmation(environment, message):
+def test_removed_designbrief_fields_rejected_even_with_user_evidence(
+    environment, path, value, message
+):
     service, _ = environment
     batch = UpdateBatch.model_validate({
-        "operation": "set",
-        "changes": [{"path": "engineering.clearance.group", "value": "CN",
-                     "evidence_span": message}],
+        "operation": "set", "changes": [
+            {"path": path, "value": value, "evidence_span": message,
+             **({"unit": "mm"} if isinstance(value, float) else {})}
+        ],
     })
-    out = service.update_design_brief(
+    outcome = service.update_design_brief(
         "s", batch, TrustedContext(message_id="c1", user_message=message)
     )
-    assert out.rejected_changes
-    assert service.get_brief("s")[0].engineering.clearance.group is None
+    assert not outcome.applied_changes
+    assert outcome.rejected_changes[0]["path"] == path
+    brief, revision = service.get_brief("s")
+    assert revision == 0
+    assert "fits" not in brief.model_dump()["engineering"]
+    assert "clearance" not in brief.model_dump()["engineering"]
 
 
 def test_propose_does_not_write_and_later_approval_uses_stored_values(environment):
     service, _ = environment
-    first = tool(service, "请推荐配合，但先不要保存", turn_id="t1")
-    proposed = propose_fits(first)
+    first = tool(service, "请推荐润滑方式，但先不要保存", turn_id="t1")
+    proposed = propose_lubrication(first)
     assert proposed["ok"]
     assert proposed["status"] == "PROPOSED"
     assert proposed["review_status"] == "UNVERIFIED"
     assert service.get_brief("s")[1] == 0
-    assert service.get_brief("s")[0].engineering.fits.inner_ring is None
+    assert service.get_brief("s")[0].engineering.lubrication.mode is None
     proposal_id = proposed["proposal_id"]
 
-    # New process/tool instance: no model re-supplies either recommended value.
     second = tool(service, "就按你推荐的来", turn_id="t2")
     adopted = second.tools()[0].invoke({
         "operation": "accept", "proposal_id": proposal_id,
@@ -89,12 +82,12 @@ def test_propose_does_not_write_and_later_approval_uses_stored_values(environmen
     assert adopted["decision_method"] == "user_accepted"
     brief, rev = service.get_brief("s")
     assert rev == 1
-    assert brief.engineering.fits.inner_ring.value == "k6"
-    assert brief.engineering.fits.outer_ring.value == "H7"
-    assert brief.engineering.fits.inner_ring.source.ref == proposal_id
-    assert brief.engineering.fits.inner_ring.source.kind == "derived"
-    assert brief.engineering.fits.outer_ring.evidence_status == "UNVERIFIED"
-    assert "未经工程校核" in brief.engineering.fits.outer_ring.note
+    saved = brief.engineering.lubrication.mode
+    assert saved.value == "grease"
+    assert saved.source.ref == proposal_id
+    assert saved.source.kind == "derived"
+    assert saved.evidence_status == "UNVERIFIED"
+    assert "未经工程校核" in saved.note
     assert service.store.pending_recommendation("s") is None
 
     replay = tool(service, "就按你推荐的来", turn_id="t3")
@@ -112,24 +105,25 @@ def test_propose_does_not_write_and_later_approval_uses_stored_values(environmen
 ])
 def test_approval_question_or_refusal_does_not_commit(environment, reply):
     service, _ = environment
-    proposal_id = propose_fits(tool(service, "请推荐", turn_id="t1"))["proposal_id"]
+    proposal_id = propose_lubrication(
+        tool(service, "请推荐", turn_id="t1")
+    )["proposal_id"]
     attempt = tool(service, reply, turn_id="t2").tools()[0].invoke({
         "operation": "accept", "proposal_id": proposal_id,
         "approval_evidence_span": reply,
     })
     assert not attempt["ok"]
-    assert service.get_brief("s")[0].engineering.fits.inner_ring is None
+    assert service.get_brief("s")[0].engineering.lubrication.mode is None
 
 
 def test_recommendation_cannot_cross_sessions_or_survive_revision_change(environment):
     service, _ = environment
-    proposal_id = propose_fits(tool(service, "请推荐", turn_id="t1"))["proposal_id"]
+    proposal_id = propose_lubrication(tool(service, "请推荐", turn_id="t1"))["proposal_id"]
     cross = tool(service, "就按你推荐的来", session="another", turn_id="t2")
-    result = cross.tools()[0].invoke({
+    assert not cross.tools()[0].invoke({
         "operation": "accept", "proposal_id": proposal_id,
         "approval_evidence_span": "就按你推荐的来",
-    })
-    assert not result["ok"]
+    })["ok"]
     change = tool(service, "轴承宽度10mm", turn_id="t3").tools()[0].invoke({
         "operation": "set",
         "changes": [{"path": "dimensions.B_mm", "value": 10, "unit": "mm",
@@ -141,17 +135,19 @@ def test_recommendation_cannot_cross_sessions_or_survive_revision_change(environ
         "approval_evidence_span": "就按你推荐的来",
     })
     assert not stale["ok"]
-    assert service.get_brief("s")[0].engineering.fits.inner_ring is None
+    assert service.get_brief("s")[0].engineering.lubrication.mode is None
 
 
-def test_proposal_cannot_lock_numerical_design_or_write_unknown_paths(environment):
+def test_proposal_cannot_save_deleted_fields_or_numerical_design(environment):
     service, _ = environment
     t = tool(service, "给我推荐")
     for bad in [
         {"path": "dimensions.d_mm", "value": "25"},
         {"path": "optimization_slots.Z", "value": "12"},
-        {"path": "engineering.clearance.group", "value": "C8"},
-        {"path": "engineering.fits.inner_ring", "value": 12},
+        {"path": "engineering.clearance.group", "value": "CN"},
+        {"path": "engineering.fits.inner_ring", "value": "k6"},
+        {"path": "engineering.fits.outer_ring", "value": "H7"},
+        {"path": "engineering.lubrication.mode", "value": "unsupported"},
     ]:
         result = t.tools()[0].invoke({"operation": "propose", "changes": [bad]})
         assert not result["ok"]
@@ -159,64 +155,63 @@ def test_proposal_cannot_lock_numerical_design_or_write_unknown_paths(environmen
     assert service.get_brief("s")[1] == 0
 
 
-class FitKnowledge:
-    _records = ({"id": "fit-background", "topic": "fit"},)
+class LubricationKnowledge:
+    _records = ({"id": "lube-background", "topic": "lubrication"},)
 
     def search(self, query, catalog_query=None):
         return {
             "ok": True, "status": "RELATED_EVIDENCE",
             "query_type": "concept", "retrieval_method": "lexical_fallback",
-            "results": [{"id": "fit-background", "source": {
-                "url": "https://example.org/fit",
+            "results": [{"id": "lube-background", "source": {
+                "url": "https://example.org/lubrication",
             }}],
         }
 
 
 def test_delegate_requires_matching_lookup_and_current_turn_scope(environment):
     service, _ = environment
-    text = "配合你来推荐和指定吧"
-    t = tool(service, text, turn_id="delegate")
-    proposed = propose_fits(t)
-    fail = t.tools()[0].invoke({
+    message = "润滑你来推荐和指定吧"
+    t = tool(service, message, turn_id="delegate")
+    proposed = propose_lubrication(t)
+    no_lookup = t.tools()[0].invoke({
         "operation": "delegate", "proposal_id": proposed["proposal_id"],
-        "approval_evidence_span": text,
+        "approval_evidence_span": message,
     })
-    assert not fail["ok"]
+    assert not no_lookup["ok"]
     assert service.get_brief("s")[1] == 0
 
-    t2 = tool(service, text, session="other", turn_id="d2")
-    t2.knowledge = FitKnowledge()
-    lookup = t2.tools()[2].invoke({"query": "轴承套圈与轴的配合"})
+    t2 = tool(service, message, session="other", turn_id="d2")
+    t2.knowledge = LubricationKnowledge()
+    lookup = t2.tools()[2].invoke({"query": "润滑脂选型依据"})
     assert lookup["status"] == "RELATED_EVIDENCE"
-    proposed = propose_fits(t2)
-    assert proposed["knowledge_ids"] == ["fit-background"]
+    proposed = propose_lubrication(t2)
+    assert proposed["knowledge_ids"] == ["lube-background"]
     accepted = t2.tools()[0].invoke({
         "operation": "delegate", "proposal_id": proposed["proposal_id"],
-        "approval_evidence_span": text,
+        "approval_evidence_span": message,
     })
     assert accepted["ok"]
     assert accepted["decision_method"] == "agent_delegated"
-    assert "授权Agent" in service.get_brief("other")[0].engineering.fits.inner_ring.note
+    assert "授权Agent" in service.get_brief("other")[0].engineering.lubrication.mode.note
 
-    t3 = tool(service, "润滑你来决定", session="third", turn_id="d3")
-    t3.knowledge = FitKnowledge()
-    t3.tools()[2].invoke({"query": "配合"})
-    proposed = propose_fits(t3)
+    t3 = tool(service, "材料你来决定", session="third", turn_id="d3")
+    t3.knowledge = LubricationKnowledge()
+    t3.tools()[2].invoke({"query": "润滑脂"})
+    proposed = propose_lubrication(t3)
     denied = t3.tools()[0].invoke({
         "operation": "delegate", "proposal_id": proposed["proposal_id"],
-        "approval_evidence_span": "润滑你来决定",
+        "approval_evidence_span": "材料你来决定",
     })
     assert not denied["ok"]
     assert service.get_brief("third")[1] == 0
 
-    # Asking for advice is not delegated permission to save a selection.
-    t4 = tool(service, "配合帮我推荐一下", session="advice", turn_id="d4")
-    t4.knowledge = FitKnowledge()
-    t4.tools()[2].invoke({"query": "轴承配合"})
-    proposed = propose_fits(t4)
+    t4 = tool(service, "润滑帮我推荐一下", session="advice", turn_id="d4")
+    t4.knowledge = LubricationKnowledge()
+    t4.tools()[2].invoke({"query": "润滑方式"})
+    proposed = propose_lubrication(t4)
     only_advice = t4.tools()[0].invoke({
         "operation": "delegate", "proposal_id": proposed["proposal_id"],
-        "approval_evidence_span": "配合帮我推荐一下",
+        "approval_evidence_span": "润滑帮我推荐一下",
     })
     assert not only_advice["ok"]
     assert service.get_brief("advice")[1] == 0
