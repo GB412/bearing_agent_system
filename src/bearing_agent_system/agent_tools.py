@@ -96,7 +96,7 @@ class TurnTools:
                     )
                 ] if name == "lookup_engineering_knowledge" else [],
                 "knowledge_source_urls": [
-                    item.get("source", {}).get("url") for item in (
+                    (item.get("source") or {}).get("url") for item in (
                         result.get("results", []) + result.get("related_sources", [])
                     )
                 ] if name == "lookup_engineering_knowledge" else [],
