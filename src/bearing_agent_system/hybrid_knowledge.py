@@ -84,6 +84,9 @@ class HybridKnowledge:
                 "message": f"目录读取失败：{type(exc).__name__}",
             }
 
+        source = next((src for src in data.get("sources", [])
+                       if src.get("id") == CATALOG_TYPES[kind]), None)
+
         if action == "list":
             try:
                 offset = int(request.get("offset", 0))
@@ -95,6 +98,7 @@ class HybridKnowledge:
             return {
                 "ok": True, "status": "FOUND" if page else "NOT_FOUND",
                 "query_type": "catalog", "entity_type": kind,
+                "catalog_source": source,
                 "total": len(rows), "offset": offset,
                 "next_offset": offset + len(page) if offset + len(page) < len(rows) else None,
                 "results": [{"id": row["id"], "name": row["name"]} for row in page],
@@ -126,8 +130,6 @@ class HybridKnowledge:
                 "query_type": "catalog", "results": [],
                 "available_fields": list(row["values_raw"]),
             }
-        source = next((source for source in data.get("sources", [])
-                       if source["id"] == CATALOG_TYPES[kind]), None)
         return {
             "ok": True, "status": "FOUND", "query_type": "catalog",
             "results": [{
