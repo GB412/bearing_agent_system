@@ -73,19 +73,19 @@ python examples/pr03_live_eval.py --model deepseek-flash --max-cases 8
 
 现有 `update_design_brief` 工具增加三种操作，不增加独立 Agent 或新的工具：
 
-- `operation=propose`：只能登记**工程选项类** path/value（例如游隙、润滑方式、材料、保持架、配合），SQLite 保存一条当前待采纳推荐，**不修改 DesignBrief**，不会把模型建议伪装成用户确认。数值优化变量、尺寸、载荷、硬约束不能通过此入口写入。
+- `operation=propose`：只能登记**工程选项类** path/value（例如润滑方式、材料、保持架），SQLite 保存一条当前待采纳推荐，**不修改 DesignBrief**，不会把模型建议伪装成用户确认。数值优化变量、尺寸、载荷、硬约束不能通过此入口写入。
 - `operation=accept`：用户后续说“就按你推荐的来”等明确采纳语句时，将当前原话作为批准证据；参数直接从同会话 SQLite 推荐记录读取，不需要复述具体推荐值，且不能越过已修改的 DesignBrief revision。
 - `operation=delegate`：用户当轮明确授权指定领域“你来决定/指定”，模型先执行对应工程知识查询并提出具体候选，才能在同轮采用**初步、未工程校核**的选择。仅要求推荐不代表授权采用；知识记录只是相关背景，不能宣称专业校核合格。
 
 采纳记录的 `source.kind=derived`、`source.ref=proposal_id` 和 `note` 区分用户接受与用户授权，`evidence_status=UNVERIFIED`；`/brief` 还展示当前 `pending_recommendation`。任何人工已保存的不同值都不会被推荐悄悄覆盖。当前每会话只保留一条可采纳推荐，更早的推荐自动失效。
 
-离线回归：`python -m pytest -q tests -m "not live"`，重点检查 `tests/test_pr03_recommendation_adoption.py`。真实 DeepSeek 需单独执行多轮：先“请推荐一种配合方案，暂不采用”，再“按你推荐的来”，通过 `/brief`、`/trace` 验证；“配合你来推荐和指定”在工程依据不足时允许拒绝自动采用。
+离线回归：`python -m pytest -q tests -m "not live"`，重点检查 `tests/test_pr03_recommendation_adoption.py`。真实 DeepSeek 需单独执行多轮：先“请推荐一种润滑方案，暂不采用”，再“按你推荐的来”，通过 `/brief`、`/trace` 验证；“润滑你来推荐和指定”在工程依据不足时允许拒绝自动采用。
 
 **边界**：本阶段是对话授权和初步选项采纳的基础设施，并非专业工程参数推荐算法或 RoBAS 校核；跨轮旧用户数字自动补交仍需独立评估。
 
 ### 最终 PR-03 审查验收事项
 
-- **用户选择可信性**：只讨论脂/油润滑、询问 C3、尚未确定游隙时不允许模型自行确认为用户选择；合法显式指定仍可保存。
+- **用户选择可信性**：仅讨论脂/油润滑时不得擅自确认润滑模式；游隙和配合仍可查询概念，但依据 DesignBrief/v2 不再进入任何用户参数写入或提案。
 - **模型可见工具合同**：`lookup_engineering_knowledge(query, catalog_query=None)`；概念查询使用 `RELATED_EVIDENCE`（相关但非充分），`NOT_FOUND` 表示相关性不足；目录查询具有 `FOUND`、`CATALOG_UNAVAILABLE`、`INSUFFICIENT_EVIDENCE` 等明确状态。
 - **来源日志**：`/trace` 除记录 ID、网页 URL 外，还保存 `retrieval_method`、本地 `source_id`、源文件 SHA-256、行号/主键和原始字段名，避免本地目录更新后无法重现。
 - **Embedding 真实验收**：`python examples/pr03_semantic_smoke.py` 默认只加载已有缓存，不会联网；只有 `--allow-download` 才明确允许下载。该脚本要求实际 `retrieval_method=embedding`，核查口语改写和无关查询的区分效果。当前 0.53 相似度下限是**小规模真实中文样本校准后的暂定值**，不能因 DummyEncoder 测试通过而宣称已完成中文语义能力验收。
