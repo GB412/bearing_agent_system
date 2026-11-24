@@ -51,10 +51,6 @@ FIELDS: dict[str, FieldSpec] = {
     "engineering.cage.material_id": FieldSpec("string", required=True),
     "engineering.lubrication.mode": FieldSpec("enum", choices=("oil", "grease", "other"), required=True),
     "engineering.lubrication.lubricant_id": FieldSpec("string", required=True),
-    "engineering.clearance.group": FieldSpec("enum", choices=("C2", "CN", "C3", "C4", "C5")),
-    "engineering.clearance.initial_radial_clearance_mm": FieldSpec("number", "mm", nonnegative=True),
-    "engineering.fits.inner_ring": FieldSpec("string", required=True),
-    "engineering.fits.outer_ring": FieldSpec("string", required=True),
     "requirements.constraints[]": FieldSpec("requirement"),
     "requirements.preferences[]": FieldSpec("requirement"),
     "requirements.geometric_bounds[]": FieldSpec("requirement"),
@@ -369,9 +365,6 @@ ENUM_EVIDENCE: dict[str, dict[str, tuple[str, ...]]] = {
         "oil": ("油润滑", "润滑油", "oil"),
         "other": ("其他润滑", "其他方式", "other"),
     },
-    "engineering.clearance.group": {
-        name: (name,) for name in ("C2", "CN", "C3", "C4", "C5")
-    },
 }
 ENUM_QUESTION = re.compile(
     r"区别|比较|介绍|了解|解释|什么是|是什么意思|如何|哪种|哪个|"
@@ -437,14 +430,7 @@ def _validate_enum_user_choice(change: UpdateChange, context: TrustedContext) ->
             )
             if negated.search(context.user_message):
                 raise InvalidChange("User explicitly rejected this choice")
-    if change.path == "engineering.clearance.group":
-        shorthand = re.search(
-            r"(?:径向)?游隙(?:组别|等级)?\s*(?:(?:确认|确定|选(?:择|定)?|采用|为)\s*)?[:：=]?\s*" + re.escape(change.value)
-            + r"(?![A-Za-z0-9])", evidence, re.I
-        )
-        if not ENUM_SELECTION.search(evidence) and shorthand is None:
-            raise InvalidChange("Clearance group requires an explicit user choice")
-    elif ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
+    if ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
         evidence
     ):
         raise InvalidChange("Discussion of lubrication is not a selected mode")
