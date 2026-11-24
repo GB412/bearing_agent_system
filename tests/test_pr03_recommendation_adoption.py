@@ -52,7 +52,7 @@ def test_clearance_explicit_user_choice_is_saved(environment, message):
 
 @pytest.mark.parametrize("message", [
     "游隙组别CN是什么意思？", "CN和C3哪个更好？",
-    "不要采用CN", "我还没确定游隙，想了解CN",
+    "不要采用CN", "不确认CN", "不要确认CN", "我还没确定游隙，想了解CN",
 ])
 def test_questions_and_negations_cannot_fake_cn_confirmation(environment, message):
     service, _ = environment
