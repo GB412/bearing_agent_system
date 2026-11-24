@@ -520,7 +520,7 @@ def test_oil_invalid_enum_then_success_is_not_reported_as_failure(environment):
     assert service.get_brief("s")[0].engineering.lubrication.mode.value == "oil"
 
 
-def test_partial_batch_failed_then_partial_correction_reports_remaining(environment):
+def test_partial_batch_then_corrected_enum_keeps_both_valid_fields(environment):
     service, history = environment
     model = ScriptedChatModel(replies=[
         action("update_design_brief", {"operation": "set", "changes": [
@@ -530,21 +530,23 @@ def test_partial_batch_failed_then_partial_correction_reports_remaining(environm
         action("update_design_brief", {"operation": "set", "changes": [
             param("engineering.lubrication.mode", "oil", "油润滑")
         ]}, "oil-only"),
-        AIMessage(content="关于钢球材料仍需要澄清，但润滑油类型可以后续确定。"),
+        AIMessage(content="已确认用户选择油润滑，润滑剂牌号还未确定。"),
     ])
     result = ConversationAgent(service, history, model).respond(
         "s", "油润滑；钢球采用GCr15", turn_id="partial-repair"
     )
-    assert result.revision == 1
-    assert "本轮实际已写入：润滑方式=油润滑" in result.answer
-    assert "本轮仍未保存：钢球材料" in result.answer
-    # A failed write still reports trusted receipts, while preserving
-    # independent guidance that does not claim the field was saved.
-    assert "关于钢球材料仍需要澄清" in result.answer
-    assert service.get_brief("s")[0].engineering.materials.ball_id is None
-    assert reconcile_writes(result.tool_trace).unresolved[0][0] == (
-        "engineering.materials.ball_id"
+    assert result.revision == 2
+    assert "本轮实际已写入：钢球材料=GCr15" in result.answer
+    assert "润滑方式=油润滑" in result.answer
+    assert "本轮仍未保存" not in result.answer
+    assert result.tool_trace[0]["applied_changes"] == ["engineering.materials.ball_id"]
+    assert result.tool_trace[0]["rejected_changes"][0]["path"] == (
+        "engineering.lubrication.mode"
     )
+    assert result.tool_trace[1]["applied_changes"] == ["engineering.lubrication.mode"]
+    assert service.get_brief("s")[0].engineering.materials.ball_id.value == "GCr15"
+    assert service.get_brief("s")[0].engineering.lubrication.mode.value == "oil"
+    assert not reconcile_writes(result.tool_trace).unresolved
 
 
 def test_success_then_later_rejection_is_not_hidden(environment):
