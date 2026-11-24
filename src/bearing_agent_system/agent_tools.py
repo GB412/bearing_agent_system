@@ -115,8 +115,12 @@ class TurnTools:
                             "robas_catalog" if result.get("query_type") == "catalog"
                             else (item.get("source") or {}).get("source_type", "manufacturer")
                         ),
-                        "source_id": (item.get("source") or {}).get("id"),
-                        "source_hash": (item.get("source") or {}).get("sha256"),
+                        "source_id": (
+                            item.get("source") or result.get("catalog_source") or {}
+                        ).get("id"),
+                        "source_hash": (
+                            item.get("source") or result.get("catalog_source") or {}
+                        ).get("sha256"),
                         "source_url": (item.get("source") or {}).get("url"),
                         "source_field": list(item.get("source_fields", {})),
                         "source_row": item.get("source_row"),
