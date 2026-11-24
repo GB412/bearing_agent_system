@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -11,6 +12,7 @@ from uuid import uuid4
 from .checks import get_design_status
 from .models import (
     DesignBrief,
+    Source,
     OptimizationSlot,
     ParameterValue,
     TrustedContext,
@@ -37,6 +39,18 @@ class SQLiteDesignBriefStore:
                   payload_json TEXT NOT NULL,
                   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )"""
+            )
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS design_recommendations (
+                  session_id TEXT NOT NULL,
+                  proposal_id TEXT NOT NULL,
+                  base_revision INTEGER NOT NULL,
+                  created_turn_id TEXT NOT NULL,
+                  changes_json TEXT NOT NULL,
+                  knowledge_ids_json TEXT NOT NULL,
+                  status TEXT NOT NULL DEFAULT 'pending',
+                  PRIMARY KEY (session_id, proposal_id)
                 )"""
             )
 
@@ -216,6 +230,141 @@ class SQLiteDesignBriefStore:
             return False
         set_path_value(brief, change.path, new_value)
         return True
+
+    def propose_recommendation(
+        self, session_id: str, changes: list[dict], turn_id: str,
+        knowledge_ids: list[str] | None = None,
+    ) -> dict:
+        """Store a small selection proposal, never a confirmed design fact.
+
+        Only non-numeric engineering choice fields are eligible in PR-03.
+        Numeric optimization and constraints must still use trusted user facts.
+        """
+        allowed = {
+            path for path, spec in FIELDS.items()
+            if path.startswith("engineering.") and spec.kind in ("enum", "string")
+        }
+        if not isinstance(changes, list) or not 1 <= len(changes) <= 8:
+            raise InvalidChange("Recommendation needs 1 to 8 engineering choices")
+        proposals: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for entry in changes:
+            if not isinstance(entry, dict) or set(entry) - {"path", "value"}:
+                raise InvalidChange("Recommendation accepts path and value only")
+            path, value = entry.get("path"), entry.get("value")
+            if path not in allowed or path in seen:
+                raise InvalidChange("Unsupported or repeated recommendation field")
+            if not isinstance(value, str) or not value.strip() or len(value) > 80:
+                raise InvalidChange("Recommendation needs a short nonempty choice")
+            if FIELDS[path].kind == "enum" and value not in FIELDS[path].choices:
+                raise InvalidChange("Unsupported recommendation enum value")
+            proposals.append({"path": path, "value": value.strip()})
+            seen.add(path)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            _, revision = self._load(conn, session_id)
+            # There is at most one actionable recommendation per session.
+            conn.execute(
+                "UPDATE design_recommendations SET status='superseded' "
+                "WHERE session_id=? AND status='pending'", (session_id,),
+            )
+            proposal_id = "rec-" + uuid4().hex[:12]
+            conn.execute(
+                "INSERT INTO design_recommendations "
+                "(session_id,proposal_id,base_revision,created_turn_id,"
+                "changes_json,knowledge_ids_json) VALUES (?,?,?,?,?,?)",
+                (session_id, proposal_id, revision, turn_id,
+                 json.dumps(proposals, ensure_ascii=False),
+                 json.dumps(knowledge_ids or [], ensure_ascii=False)),
+            )
+        return {
+            "proposal_id": proposal_id, "base_revision": revision,
+            "changes": proposals, "knowledge_ids": knowledge_ids or [],
+            "status": "PROPOSED", "review_status": "UNVERIFIED",
+        }
+
+    def pending_recommendation(self, session_id: str) -> dict | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT proposal_id, base_revision, created_turn_id, "
+                "changes_json, knowledge_ids_json FROM design_recommendations "
+                "WHERE session_id=? AND status='pending' ORDER BY rowid DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "proposal_id": row["proposal_id"],
+            "base_revision": row["base_revision"],
+            "created_turn_id": row["created_turn_id"],
+            "changes": json.loads(row["changes_json"]),
+            "knowledge_ids": json.loads(row["knowledge_ids_json"]),
+        }
+
+    def adopt_recommendation(
+        self, session_id: str, proposal_id: str, context: TrustedContext,
+        *, delegated: bool = False,
+    ) -> UpdateResult:
+        """Commit only server-stored recommended values after verified consent.
+
+        The current user turn authorizes adoption, not the recommendation's
+        numbers. A stale or previously consumed proposal cannot be replayed.
+        """
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            original, revision = self._load(conn, session_id)
+            row = conn.execute(
+                "SELECT * FROM design_recommendations WHERE "
+                "session_id=? AND proposal_id=? AND status='pending'",
+                (session_id, proposal_id),
+            ).fetchone()
+            if row is None:
+                raise InvalidChange("No pending recommendation with that ID")
+            if row["base_revision"] != revision:
+                raise InvalidChange("Recommendation is stale; regenerate after design changes")
+            entries = json.loads(row["changes_json"])
+            if delegated:
+                if row["created_turn_id"] != context.message_id:
+                    raise InvalidChange("Delegated adoption must be proposed this user turn")
+                if not json.loads(row["knowledge_ids_json"]):
+                    raise InvalidChange("Delegated choice requires queried engineering evidence")
+            edited = original.model_copy(deep=True)
+            changed: list[str] = []
+            for entry in entries:
+                path, value = entry["path"], entry["value"]
+                previous = get_path_value(edited, path)
+                if previous is not None and previous.value != value:
+                    raise InvalidChange(f"Cannot overwrite existing user choice: {path}")
+                if previous is not None:
+                    continue
+                source = Source(kind="derived", message_id=context.message_id, ref=proposal_id)
+                note = (
+                    "用户授权Agent确定的初步选择；未经工程校核"
+                    if delegated else "用户采纳Agent推荐；未经工程校核"
+                )
+                set_path_value(edited, path, ParameterValue(
+                    value=value, unit=None, confirmed=True,
+                    source=source, note=note, evidence_status="UNVERIFIED",
+                ))
+                changed.append(path)
+            edited = DesignBrief.model_validate(edited.model_dump())
+            self._check_geometry(edited)
+            if changed:
+                revision += 1
+                conn.execute(
+                    "UPDATE design_briefs SET payload_json=?, revision=?, "
+                    "updated_at=CURRENT_TIMESTAMP WHERE session_id=?",
+                    (edited.model_dump_json(), revision, session_id),
+                )
+            conn.execute(
+                "UPDATE design_recommendations SET status='accepted' "
+                "WHERE session_id=? AND proposal_id=?",
+                (session_id, proposal_id),
+            )
+        return UpdateResult(
+            revision=revision, applied_changes=changed,
+            design_status=get_design_status(edited),
+        )
 
     @staticmethod
     def _requirement_signature(value) -> tuple:
