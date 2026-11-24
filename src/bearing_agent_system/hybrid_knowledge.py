@@ -201,25 +201,60 @@ class HybridKnowledge:
             pass
         return self._vectors
 
+    @staticmethod
+    def _keyword_support(query: str, document: str) -> bool:
+        """Lexical fallback cannot pretend to infer Chinese paraphrases.
+
+        Require a meaningful explicit domain token (or model designation).
+        Unrelated questions must not receive whichever three records happen
+        to be ranked highest by a string-distance algorithm.
+        """
+        import re
+
+        stop = {"轴承", "工作", "情况", "条件", "怎么", "什么", "是多少"}
+        tokens = re.findall(r"[A-Za-z]+\d*|\d{4,}|[\u4e00-\u9fff]{2,4}", query)
+        document_lower = document.casefold()
+        return any(
+            token.casefold() in document_lower
+            for token in tokens if token not in stop and len(token) > 1
+        )
+
     def _concept(self, query: str) -> dict:
         if not self.records:
-            return {"ok": True, "status": "NOT_FOUND", "results": []}
+            return {"ok": True, "status": "NOT_FOUND", "results": [],
+                    "query_type": "concept"}
         vectors = self._index()
         encoder = self._load_encoder()
-        if vectors and encoder is not None:
+        if vectors and encoder is not None and len(vectors) == len(self.records):
             question = list(map(float, encoder.encode([query])[0]))
             scores = [_cosine(question, row) for row in vectors]
             method = "embedding"
+            # Conservative provisional cutoff. Real Chinese model acceptance must
+            # calibrate this value on paraphrase/negative test queries.
+            threshold = 0.60
         else:
-            # Explicitly labelled offline fallback, not claimed to be semantic.
+            documents = self._documents()
             scores = [
-                SequenceMatcher(None, query.casefold(), text.casefold()).ratio()
-                for text in self._documents()
+                SequenceMatcher(None, query.casefold(), document.casefold()).ratio()
+                if self._keyword_support(query, document) else 0.0
+                for document in documents
             ]
             method = "lexical_fallback"
-        indices = sorted(
-            range(len(self.records)), key=lambda i: scores[i], reverse=True
-        )[:3]
+            threshold = 0.12
+        indices = [
+            i for i in sorted(range(len(self.records)),
+                              key=lambda i: scores[i], reverse=True)
+            if math.isfinite(scores[i]) and scores[i] >= threshold
+        ][:3]
+        if not indices:
+            return {
+                "ok": True, "status": "NOT_FOUND", "query_type": "concept",
+                "retrieval_method": method, "results": [],
+                "message": (
+                    "检索相关度不足，没有可靠匹配。"
+                    "当前方法可能漏掉同义改写；不能依据无关记录编造工程数值。"
+                ),
+            }
         return {
             "ok": True, "status": "RELATED_EVIDENCE", "query_type": "concept",
             "retrieval_method": method,
@@ -228,8 +263,7 @@ class HybridKnowledge:
                 for i in indices
             ],
             "message": (
-                "检索命中只表示相关，不代表回答已得到充分证据或工程审核。"
-                "没有匹配的具体数值时，可解释一般概念，但不可凭模型记忆"
-                "捏造厂家数值、RoBAS支持项或适用性结论。"
+                "检索命中只表示可能相关，不代表所问答案已经有充分证据"
+                "或已通过工程审核。缺少资料中的具体数值时应明确说明。"
             ),
         }
