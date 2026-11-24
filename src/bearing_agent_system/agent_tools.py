@@ -45,7 +45,7 @@ class TurnTools:
         """Small independent authorization guard; LLM handles intent nuances."""
         if not evidence or evidence not in message:
             raise InvalidChange("Approval evidence is not in the current user message")
-        if re.search(r"如果|假如|比如|先不|先别|暂不|还没|没有|尚未|不要|不采纳|不采用|不接受|不按|"
+        if re.search(r"如果|假如|比如|先不|先别|暂不|还没|没有|尚未|不要|不可以|不同意|不确认|不采纳|不采用|不接受|不按|"
                      r"仅了解|只是问|[?？]", message):
             raise InvalidChange("Question, hypothetical or refusal cannot authorize adoption")
         if delegated:
@@ -230,9 +230,9 @@ class TurnTools:
                     result.get("retrieval_method") or
                     ("exact" if result.get("query_type") == "catalog" else None)
                 ) if name == "lookup_engineering_knowledge" else None,
-                "proposal_id": result.get("proposal_id"),
-            "decision_method": result.get("decision_method"),
-            "knowledge_provenance": [
+                    "proposal_id": result.get("proposal_id"),
+                "decision_method": result.get("decision_method"),
+                "knowledge_provenance": [
                     {
                         "record_id": item.get("id"),
                         "source_type": (
