@@ -68,22 +68,10 @@ class Lubrication(StrictModel):
     lubricant_id: ParameterValue | None = None
 
 
-class Clearance(StrictModel):
-    group: ParameterValue | None = None
-    initial_radial_clearance_mm: ParameterValue | None = None
-
-
-class Fits(StrictModel):
-    inner_ring: ParameterValue | None = None
-    outer_ring: ParameterValue | None = None
-
-
 class Engineering(StrictModel):
     materials: Materials = Field(default_factory=Materials)
     cage: Cage = Field(default_factory=Cage)
     lubrication: Lubrication = Field(default_factory=Lubrication)
-    clearance: Clearance = Field(default_factory=Clearance)
-    fits: Fits = Field(default_factory=Fits)
 
 
 class Requirement(StrictModel):
@@ -161,7 +149,7 @@ class SolverContext(StrictModel):
 
 
 class DesignBrief(StrictModel):
-    schema_version: Literal["DGBDesignBrief/v1"] = "DGBDesignBrief/v1"
+    schema_version: Literal["DGBDesignBrief/v2"] = "DGBDesignBrief/v2"
     bearing: Bearing = Field(default_factory=Bearing)
     dimensions: Dimensions = Field(default_factory=Dimensions)
     operating: Operating = Field(default_factory=Operating)
