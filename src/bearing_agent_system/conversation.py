@@ -15,6 +15,7 @@ from .agent_prompt import build_system_prompt
 from .agent_tools import TurnTools
 from .brief_service import DesignBriefService
 from .conversation_store import ConversationStore
+from .knowledge import KnowledgeRepository
 from .reply_guard import needs_write_repair, verified_reply
 
 
@@ -74,6 +75,9 @@ class ConversationAgent:
         self.max_tool_calls = max_tool_calls
         self.history_turns = history_turns
         self.agent_factory = agent_factory
+        # Share the read-only knowledge backend (and cached vector index)
+        # across turns; do not reload an embedding model every user message.
+        self.knowledge = KnowledgeRepository()
         # PR-02 is deliberately single-process / serial, with no distributed locks.
         self._lock = threading.RLock()
 
@@ -120,6 +124,7 @@ class ConversationAgent:
                 service=self.service, session_id=session_id,
                 message_id=user_turn_id, user_message=user_message,
                 max_calls=self.max_tool_calls,
+                knowledge=self.knowledge,
             )
             started = time.perf_counter()
             try:
