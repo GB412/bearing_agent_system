@@ -235,7 +235,8 @@ class HybridKnowledge:
         else:
             documents = self._documents()
             scores = [
-                SequenceMatcher(None, query.casefold(), document.casefold()).ratio()
+                max(0.22, SequenceMatcher(None, query.casefold(),
+                                               document.casefold()).ratio())
                 if self._keyword_support(query, document) else 0.0
                 for document in documents
             ]
