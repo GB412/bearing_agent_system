@@ -84,24 +84,33 @@ def reconcile_writes(trace: list[dict[str, Any]]) -> WriteOutcome:
     for entry in trace:
         if entry.get("name") != "update_design_brief":
             continue
+        # Mixed result: a single call can contain BOTH successfully committed
+        # fields and rejected fields. Never tell the user a saved field failed.
+        committed = entry.get("applied_changes", [])
+        for path in committed:
+            if path not in applied:
+                applied.append(path)
+            unresolved.pop(path, None)
         if entry.get("ok"):
-            for path in entry.get("applied_changes", []):
-                if path not in applied:
-                    applied.append(path)
-                unresolved.pop(path, None)
             continue
         rejected = {
             item.get("path"): item.get("reason", "未通过校验")
             for item in entry.get("rejected_changes", [])
             if item.get("path")
         }
-        paths = list(dict.fromkeys(
+        # Explicit path-level rejections are authoritative. The old
+        # all-or-nothing trace has only one rejected path and no applied edits;
+        # in that case other attempted paths were also rolled back. Keep the
+        # old reporting behavior only for that legacy receipt shape.
+        mixed = bool(committed)
+        paths = list(rejected) if mixed else list(dict.fromkeys(
             entry.get("attempted_paths", []) or list(rejected)
         ))
         if paths:
             for path in paths:
-                unresolved[path] = rejected.get(path, "同批更新未通过校验")
-        else:
+                if path not in committed:
+                    unresolved[path] = rejected.get(path, "同批更新未通过校验")
+        elif not committed:
             unknown.append(entry.get("error") or "未识别的工具更新错误")
     return WriteOutcome(tuple(applied), tuple(unresolved.items()), tuple(unknown))
 
