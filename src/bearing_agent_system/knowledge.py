@@ -116,6 +116,14 @@ class KnowledgeRepository:
         payload = json.loads(resource.read_text(encoding="utf-8"))
         self._records = _validate_catalog(payload)
 
+    def search(self, query: str, catalog_query: dict[str, Any] | None = None) -> dict[str, Any]:
+        """New unified query path; retain lookup(topic, query) for legacy tests."""
+        from .hybrid_knowledge import HybridKnowledge
+
+        if not hasattr(self, "_hybrid"):
+            self._hybrid = HybridKnowledge(records=list(self._records))
+        return self._hybrid.search(query, catalog_query)
+
     def lookup(self, topic: str, query: str) -> dict[str, Any]:
         if topic not in TOPICS:
             return {
