@@ -26,7 +26,7 @@ def test_live_grader_accepts_sourced_6206_dimensions_without_write():
     url = "https://www.skf.com/si/products/rolling-bearings/ball-bearings/deep-groove-ball-bearings/productid-6206"
     answer = "SKF 6206 主要尺寸30×62×16 mm，来源：" + url
     turns = [_turn(
-        answer=answer, status="FOUND",
+        answer=answer, status="RELATED_EVIDENCE",
         ids=["skf-6206-dimensions"], sources=[url],
     )]
     assert grade_knowledge_case(case, turns, final_revision=0) == []
@@ -40,7 +40,7 @@ def test_live_grader_rejects_missing_tool_or_citation():
     ))
     url = "https://www.skf.com/si/products/example"
     turns = [_turn(
-        answer="SKF 6206 30×62×16", status="FOUND",
+        answer="SKF 6206 30×62×16", status="RELATED_EVIDENCE",
         ids=["skf-6206-dimensions"], sources=[url],
     )]
     assert "lacks an exact cited manufacturer URL" in " ".join(
@@ -78,7 +78,7 @@ def test_6206_product_number_does_not_satisfy_missing_62_mm_measurement():
     url = "https://www.skf.com/si/products/rolling-bearings/ball-bearings/deep-groove-ball-bearings/productid-6206"
     turns = [_turn(
         answer="SKF 6206的尺寸是30×16mm，来源：" + url,
-        status="FOUND", ids=["skf-6206-dimensions"], sources=[url],
+        status="RELATED_EVIDENCE", ids=["skf-6206-dimensions"], sources=[url],
     )]
     errors = grade_knowledge_case(case, turns, final_revision=0)
     assert any("62" in error for error in errors)
