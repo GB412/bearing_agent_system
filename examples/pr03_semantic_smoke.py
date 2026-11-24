@@ -18,7 +18,6 @@ from pathlib import Path
 from bearing_agent_system.hybrid_knowledge import DEFAULT_MODEL, HybridKnowledge
 from bearing_agent_system.knowledge import KnowledgeRepository
 
-
 PROBES = [
     {
         "query": "轴上那个环会不会转着磨坏轴？",
