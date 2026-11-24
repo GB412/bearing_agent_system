@@ -102,6 +102,8 @@ class TurnTools:
                     for item in (result.get("results", []) + result.get("related_sources", []))
                     if (item.get("source") or {}).get("url")
                 ] if name == "lookup_engineering_knowledge" else [],
+                "knowledge_query_type": result.get("query_type")
+                if name == "lookup_engineering_knowledge" else None,
                 "retrieval_method": (
                     result.get("retrieval_method") or
                     ("exact" if result.get("query_type") == "catalog" else None)
