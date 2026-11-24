@@ -12,9 +12,9 @@ from uuid import uuid4
 from .checks import get_design_status
 from .models import (
     DesignBrief,
-    Source,
     OptimizationSlot,
     ParameterValue,
+    Source,
     TrustedContext,
     UpdateBatch,
     UpdateResult,
