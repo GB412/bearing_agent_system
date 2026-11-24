@@ -68,7 +68,7 @@ python -m bearing_agent_system.chat_cli --model deepseek-flash
 
 ## PR-03：有来源的工程知识查询（开发中）
 
-第三个 Agent 工具 `lookup_engineering_knowledge` 只读本地少量制造商资料，返回出处、适用条件和审核状态。查询结果区分 `FOUND`、`NOT_FOUND` 和 `INSUFFICIENT_EVIDENCE`（资料相关，但无法支持所问的具体数值或变体）。当前仅整理 6206 主要外形尺寸、CN/C3 概念、配合与脂润滑基础说明；具体材料物性、游隙数值、公差表仍不可用，不提供专业推荐或 RoBAS 计算。
+第三个工具 `lookup_engineering_knowledge(query, catalog_query=None)` 同时支持本地制造商专业知识检索（最多11条带来源记录）和可选 RoBAS 原版材料/润滑剂/型号 JSON 的精确查询。普通概念允许直接解释；语义结果为 `RELATED_EVIDENCE`，只能表示相关；无可靠相关结果返回 `NOT_FOUND`。完整 RoBAS 原始目录必须经本地授权提取，不提交 GitHub；来源含原文件哈希/行号，不能擅自猜测单位、审核状态或工程适用性。
 
 ```powershell
 python -m pytest -q tests -m "not live"
@@ -77,4 +77,6 @@ ruff check .
 python examples/pr03_live_eval.py --model deepseek-flash --max-cases 4
 ```
 
-真实测试核验模型是否实际调用知识工具、是否按厂家网页引用来源、是否在数值依据不足时停止编造，以及知识查询是否保持 DesignBrief 只读。脚本保存脱敏报告到被 Git 忽略的 `artifacts/pr03_live/`；未运行真实 API 时不可宣称 DeepSeek 验收通过。详见 [PR-03 实施说明](docs/pr03/IMPLEMENTATION.md)。
+真实测试核验模型是否实际调用知识工具、是否按厂家网页引用来源、是否在数值依据不足时停止编造，以及知识查询是否保持 DesignBrief 只读。脚本保存脱敏报告到被 Git 忽略的 `artifacts/pr03_live/`；未运行真实 API 时不可宣称 DeepSeek 验收通过。当前权威文档：[PR-03 混合检索与真实验收说明](docs/pr03/HYBRID_KNOWLEDGE_IMPLEMENTATION.md)；[初版历史说明](docs/pr03/IMPLEMENTATION.md)。
+
+首次语义模型验收需单独安装：`python -m pip install -e ".[dev,semantic]"`，然后显式运行 `python examples/pr03_semantic_smoke.py --allow-download`；此步骤可能下载模型，普通 CI 不会下载。
