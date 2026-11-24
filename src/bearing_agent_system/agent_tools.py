@@ -54,7 +54,13 @@ class TurnTools:
                     "schema_version": brief.schema_version,
                 }
             elif name == "lookup_engineering_knowledge":
-                result = self.knowledge.search(args.get("query", ""), args.get("catalog_query"))
+                if args.get("topic") is not None and args.get("catalog_query") is None:
+                    # Legacy PR-03 callers use topic+query. New agent path omits topic.
+                    result = self.knowledge.lookup(args["topic"], args.get("query", ""))
+                else:
+                    result = self.knowledge.search(
+                        args.get("query", ""), args.get("catalog_query")
+                    )
             else:
                 try:
                     batch = UpdateBatch.model_validate(args)
@@ -152,7 +158,8 @@ class TurnTools:
 
         @tool("lookup_engineering_knowledge")
         def lookup_engineering_knowledge(
-            query: str, catalog_query: dict[str, Any] | None = None,
+            query: str, topic: str | None = None,
+            catalog_query: dict[str, Any] | None = None,
         ) -> dict[str, Any]:
             """Read-only engineering knowledge and RoBAS source catalog.
 
@@ -164,7 +171,7 @@ class TurnTools:
             Evidence is never an automatic user parameter confirmation.
             """
             return context._run(
-                "lookup_engineering_knowledge", {"query": query, "catalog_query": catalog_query}
+                "lookup_engineering_knowledge", {"query": query, "topic": topic, "catalog_query": catalog_query}
             )
 
         return [update_design_brief, get_design_status, lookup_engineering_knowledge]
