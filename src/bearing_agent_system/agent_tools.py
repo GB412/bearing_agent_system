@@ -54,7 +54,7 @@ class TurnTools:
                     "schema_version": brief.schema_version,
                 }
             elif name == "lookup_engineering_knowledge":
-                result = self.knowledge.lookup(args.get("topic", ""), args.get("query", ""))
+                result = self.knowledge.search(args.get("query", ""), args.get("catalog_query"))
             else:
                 try:
                     batch = UpdateBatch.model_validate(args)
@@ -96,7 +96,7 @@ class TurnTools:
                     )
                 ] if name == "lookup_engineering_knowledge" else [],
                 "knowledge_source_urls": [
-                    item["source"]["url"] for item in (
+                    item.get("source", {}).get("url") for item in (
                         result.get("results", []) + result.get("related_sources", [])
                     )
                 ] if name == "lookup_engineering_knowledge" else [],
@@ -151,20 +151,20 @@ class TurnTools:
             return context._run("get_design_status", {})
 
         @tool("lookup_engineering_knowledge")
-        def lookup_engineering_knowledge(topic: str, query: str) -> dict[str, Any]:
-            """Look up source-documented DGB engineering facts (read-only).
+        def lookup_engineering_knowledge(
+            query: str, catalog_query: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            """Read-only engineering knowledge and RoBAS source catalog.
 
-            Topics: bearing_model, clearance, material, lubrication, fit.
-            Look up manufacturer-specific numbers before quoting them.
-            FOUND results contain source, applicability, limitations and review_status.
-            All included records are NOT engineering-reviewed; never treat them as
-            verified recommendations or use them as automatic user confirmation.
-            NOT_FOUND means no match. INSUFFICIENT_EVIDENCE means a relevant
-            record exists but does not answer the requested specific value or
-            variant. In either case do not invent numeric engineering data.
+            For concepts: pass query only, using local semantic retrieval.
+            For RoBAS data: pass catalog_query with entity_type
+            (material/lubricant/bearing_model), operation (list/get), optional
+            name and field. Exact catalog values come from installed source
+            files; absence is not evidence that a product is unsupported.
+            Evidence is never an automatic user parameter confirmation.
             """
             return context._run(
-                "lookup_engineering_knowledge", {"topic": topic, "query": query}
+                "lookup_engineering_knowledge", {"query": query, "catalog_query": catalog_query}
             )
 
         return [update_design_brief, get_design_status, lookup_engineering_knowledge]
