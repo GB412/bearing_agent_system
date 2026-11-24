@@ -17,13 +17,12 @@ def ch(path, value, evidence, unit=None):
     return {"path": path, "value": value, "unit": unit, "evidence_span": evidence}
 
 
-def test_exact_real_dialogue_saves_eight_valid_fields_if_clearance_bad(service):
+def test_real_dialogue_preserves_supported_fields_when_deleted_paths_attempted(service):
     message = (
         "内圈转速 18000 rpm，宽度10mm,套圈和球材料用 GCr15，"
         "保持架也用这个，内外圈配合K6,游隙组别CN"
     )
-    # User intended 8 unambiguous values. The candidate for CN is intentionally
-    # wrong; accepting the others must not depend on whether the LLM fixes CN.
+    # Deleted paths must be rejected without blocking other independent values.
     changes = [
         ch("operating.inner_speed_rpm", 18000, "内圈转速 18000 rpm", "rpm"),
         ch("dimensions.B_mm", 10, "宽度10mm", "mm"),
@@ -39,13 +38,18 @@ def test_exact_real_dialogue_saves_eight_valid_fields_if_clearance_bad(service):
     assert result.revision == 1
     assert result.applied_changes
     assert result.rejected_changes
-    assert result.rejected_changes[0]["path"] == "engineering.clearance.group"
+    assert {x["path"] for x in result.rejected_changes} == {
+        "engineering.clearance.group",
+        "engineering.fits.inner_ring",
+        "engineering.fits.outer_ring",
+    }
     saved, revision = service.get_brief("partial")
     assert revision == 1
     assert saved.operating.inner_speed_rpm.value == 18000
     assert saved.dimensions.B_mm.value == 10
     assert saved.engineering.materials.inner_ring_id.value == "GCr15"
-    assert saved.engineering.clearance.group is None
+    assert "clearance" not in saved.model_dump()["engineering"]
+    assert "fits" not in saved.model_dump()["engineering"]
 
 
 def test_failed_unit_and_good_load_commit_in_same_revision(service):
