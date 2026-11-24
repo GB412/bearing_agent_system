@@ -13,17 +13,20 @@ def test_initial_missing_does_not_include_optimizer(service):
     status = service.get_design_status("case")
     assert "dimensions.d_mm" in status.missing
     assert "operating.axial_load_n" in status.missing
-    assert "engineering.clearance" in status.missing
+    assert not any(p.startswith("engineering.fits.") or p.startswith("engineering.clearance") for p in status.missing)
     assert not any(p.startswith("optimization_slots") for p in status.missing)
     assert not any(p.startswith("solver_context") for p in status.missing)
     assert status.known["bearing.type"] == "DGB"
 
 
-def test_clearance_group_is_not_numeric_clearance(service):
-    out = up(service, "engineering.clearance.group", "C3", "游隙C3")
-    assert "engineering.clearance" not in out.design_status.missing
-    assert "engineering.clearance.initial_radial_clearance_mm" not in out.design_status.known
-    assert out.design_status.known["engineering.clearance.group"]["value"] == "C3"
+def test_no_fit_or_clearance_fields_in_new_design_brief(service):
+    brief, _ = service.get_brief("case")
+    payload = brief.model_dump(mode="json")
+    assert "clearance" not in payload["engineering"]
+    assert "fits" not in payload["engineering"]
+    assert brief.schema_version == "DGBDesignBrief/v2"
+    status = service.get_design_status("case")
+    assert not any("clearance" in path or "fits" in path for path in status.missing)
 
 
 def test_bound_not_fixed_dimension(service):
