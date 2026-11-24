@@ -60,7 +60,8 @@ python -m pip install -e ".[dev,semantic]"
 ```bash
 python -m pytest -q tests -m "not live"
 python -m ruff check .
-python examples/pr03_semantic_smoke.py --allow-download  # 首次运行明确允许下载中文模型；以后省略此参数\npython examples/pr03_live_eval.py --model deepseek-flash --max-cases 8
+python examples/pr03_semantic_smoke.py --allow-download  # 首次运行明确允许下载中文模型；以后省略此参数
+python examples/pr03_live_eval.py --model deepseek-flash --max-cases 8
 ```
 
 本次新增的测试覆盖精确字段与型号匹配、原始数值不修改、语义编码器选点、目录缺失时安全返回。需要另外运行真实 DeepSeek 设计多轮验证：参数未确认不得保存、目录未安装不能假装有支持项、工具无资料可以解释一般概念、RoBAS数值来源可追溯。
