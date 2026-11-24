@@ -360,6 +360,92 @@ def _make_slot(change: UpdateChange, source: Source,
         raise InvalidChange(str(exc)) from exc
 
 
+# Avoid treating a legal enum token emitted by the model as a user's selection.
+# This is deliberately narrow: for language not covered by these explicit
+# forms, the safe outcome is to request clarification, never to confirm.
+ENUM_EVIDENCE: dict[str, dict[str, tuple[str, ...]]] = {
+    "engineering.lubrication.mode": {
+        "grease": ("脂润滑", "润滑脂", "grease"),
+        "oil": ("油润滑", "润滑油", "oil"),
+        "other": ("其他润滑", "其他方式", "other"),
+    },
+    "engineering.clearance.group": {
+        name: (name,) for name in ("C2", "CN", "C3", "C4", "C5")
+    },
+}
+ENUM_QUESTION = re.compile(
+    r"区别|比较|介绍|了解|解释|什么是|是什么意思|如何|哪种|哪个|"
+    r"选什么|应该|能否|可否|是什么|[？?]", re.I
+)
+ENUM_UNDECIDED = re.compile(
+    r"还没确定|尚未确定|不确定|未决定|没决定|不知道|暂不确定|"
+    r"还没选|尚未选|暂时不选|仅了解|只想了解", re.I
+)
+ENUM_NEGATION = re.compile(
+    r"不(?:想|要|会|考虑|采用|使用|选|选择)|不用|未采用|没选|"
+    r"不要|排除|取消|撤销", re.I
+)
+ENUM_SELECTION = re.compile(
+    r"选(?:择|定)?|采用|使用|确定|指定|锁定|就用|定为|设为|改为|"
+    r"取|[=:：]", re.I
+)
+
+
+def _validate_enum_user_choice(change: UpdateChange, context: TrustedContext) -> None:
+    """Guard explicit enum mismatches and ambiguous question/negation contexts.
+
+    This is not full Chinese NLU. Require a positive, unambiguous user
+    declaration; ambiguous expressions remain unconfirmed and must be clarified.
+    """
+    choices = ENUM_EVIDENCE.get(change.path)
+    if choices is None:
+        return
+    if change.precision != "exact":
+        raise InvalidChange("Uncertain choice needs user confirmation before saving")
+    evidence = change.evidence_span
+    expected = choices[change.value]
+    # The selected label must appear in the *actual* trusted user message AND
+    # in the model's quoted span; a model-generated enum token is not evidence.
+    def mentions(text: str, tokens: tuple[str, ...]) -> bool:
+        return any(
+            re.search(r"(?<![A-Za-z0-9])" + re.escape(token) + r"(?![A-Za-z0-9])",
+                      text, re.I)
+            for token in tokens
+        )
+
+    if not mentions(evidence, expected):
+        raise InvalidChange("Chosen enum value lacks matching user-worded evidence")
+    if ENUM_UNDECIDED.search(context.user_message) and not ENUM_SELECTION.search(evidence):
+        raise InvalidChange("Choice not confirmed: user explicitly remains undecided")
+    # A clipped evidence span like 'C3' cannot hide uncertainty or a question
+    # present in the complete trusted user turn.
+    if ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
+        context.user_message
+    ):
+        raise InvalidChange("A question about an option is not an explicit selection")
+    if ENUM_UNDECIDED.search(context.user_message) and ENUM_SELECTION.search(evidence):
+        # A distinct selection after an undecided clause is ambiguous; for the
+        # first version be conservative rather than infer scope or attachment.
+        raise InvalidChange("Unclear choice under explicit uncertainty; ask for confirmation")
+    if ENUM_NEGATION.search(context.user_message):
+        # Reject if the negated choice is the same requested value.
+        for token in expected:
+            negated = re.compile(
+                r"(?:不想|不要|不考虑|不采用|不使用|不选(?:择)?|不用|未采用|没选|"
+                r"排除|取消|撤销)\s*(?:采用|使用|选择|选)?\s*"
+                + re.escape(token), re.I
+            )
+            if negated.search(context.user_message):
+                raise InvalidChange("User explicitly rejected this choice")
+    if change.path == "engineering.clearance.group":
+        if not ENUM_SELECTION.search(evidence):
+            raise InvalidChange("Clearance group requires an explicit user choice")
+    elif ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
+        evidence
+    ):
+        raise InvalidChange("Discussion of lubrication is not a selected mode")
+
+
 def normalize_change(change: UpdateChange, context: TrustedContext) -> ParameterValue | OptimizationSlot | Requirement:
     """Whitelist every edit, normalize units, attach source from server context."""
     spec = FIELDS.get(change.path)
@@ -394,6 +480,7 @@ def normalize_change(change: UpdateChange, context: TrustedContext) -> Parameter
     elif spec.kind == "enum":
         if not isinstance(change.value, str) or change.value not in spec.choices:
             raise InvalidChange(f"Must be one of {spec.choices}")
+        _validate_enum_user_choice(change, context)
         value = change.value
     else:
         raise InvalidChange("Unsupported field type")
