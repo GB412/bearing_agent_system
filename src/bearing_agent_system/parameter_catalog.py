@@ -386,7 +386,7 @@ ENUM_NEGATION = re.compile(
     r"不要|排除|取消|撤销", re.I
 )
 ENUM_SELECTION = re.compile(
-    r"选(?:择|定)?|采用|使用|确定|指定|锁定|就用|定为|设为|改为|"
+    r"选(?:择|定)?|采用|使用|确认|确定|指定|锁定|就用|定为|设为|改为|"
     r"取|[=:：]", re.I
 )
 
@@ -439,7 +439,7 @@ def _validate_enum_user_choice(change: UpdateChange, context: TrustedContext) ->
                 raise InvalidChange("User explicitly rejected this choice")
     if change.path == "engineering.clearance.group":
         shorthand = re.search(
-            r"(?:径向)?游隙(?:等级)?\s*[:：=]?\s*" + re.escape(change.value)
+            r"(?:径向)?游隙(?:组别|等级)?\s*(?:(?:确认|确定|选(?:择|定)?|采用|为)\s*)?[:：=]?\s*" + re.escape(change.value)
             + r"(?![A-Za-z0-9])", evidence, re.I
         )
         if not ENUM_SELECTION.search(evidence) and shorthand is None:
