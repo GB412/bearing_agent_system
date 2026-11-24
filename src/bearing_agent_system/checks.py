@@ -47,10 +47,6 @@ def get_design_status(brief: DesignBrief) -> DesignStatus:
                 "mode": slot.mode, "value": slot.value, "bounds": slot.bounds
             }
 
-    # Choice between group OR numerical clearance, not both required.
-    if brief.engineering.clearance.group is None and brief.engineering.clearance.initial_radial_clearance_mm is None:
-        missing.append("engineering.clearance")
-
     d, D = brief.dimensions.d_mm, brief.dimensions.D_mm
     if d is not None and D is not None and d.value >= D.value:
         conflicts.append("dimensions.d_mm must be smaller than dimensions.D_mm")
