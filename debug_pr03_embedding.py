@@ -1,6 +1,7 @@
 ﻿from sentence_transformers import SentenceTransformer
-from bearing_agent_system.knowledge import KnowledgeRepository
+
 from bearing_agent_system.hybrid_knowledge import _cosine
+from bearing_agent_system.knowledge import KnowledgeRepository
 
 model = SentenceTransformer(
     "BAAI/bge-small-zh-v1.5",
@@ -32,7 +33,7 @@ for query in queries:
     scores = sorted(
         [
             (_cosine(list(qvec), list(vec)), r["id"])
-            for vec, r in zip(vectors, records)
+            for vec, r in zip(vectors, records, strict=True)
         ],
         reverse=True,
     )
