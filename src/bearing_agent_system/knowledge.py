@@ -15,7 +15,7 @@ from importlib.resources import files
 from typing import Any
 from urllib.parse import urlparse
 
-TOPICS = ("bearing_model", "clearance", "material", "lubrication", "fit")
+TOPICS = ("bearing_model", "clearance", "material", "lubrication", "fit", "cage", "calculation")
 UNREVIEWED = "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED"
 
 # Narrow denial checks for *specific values* absent from this four-record
