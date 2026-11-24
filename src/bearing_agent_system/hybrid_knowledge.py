@@ -22,7 +22,7 @@ DEFAULT_MODEL = "BAAI/bge-small-zh-v1.5"
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    numerator = sum(x * y for x, y in zip(a, b))
+    numerator = sum(x * y for x, y in zip(a, b, strict=True))
     denominator = math.sqrt(sum(x * x for x in a) * sum(y * y for y in b))
     return numerator / denominator if denominator else 0.0
 
