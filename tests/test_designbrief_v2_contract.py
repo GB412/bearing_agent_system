@@ -9,7 +9,6 @@ from bearing_agent_system.agent_tools import TurnTools
 from bearing_agent_system.models import DesignBrief, Engineering
 from bearing_agent_system.parameter_catalog import FIELDS
 
-
 REMOVED = (
     "engineering.clearance.group",
     "engineering.clearance.initial_radial_clearance_mm",
