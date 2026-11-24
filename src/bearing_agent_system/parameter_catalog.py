@@ -438,7 +438,11 @@ def _validate_enum_user_choice(change: UpdateChange, context: TrustedContext) ->
             if negated.search(context.user_message):
                 raise InvalidChange("User explicitly rejected this choice")
     if change.path == "engineering.clearance.group":
-        if not ENUM_SELECTION.search(evidence):
+        shorthand = re.search(
+            r"(?:径向)?游隙(?:等级)?\s*[:：=]?\s*" + re.escape(change.value)
+            + r"(?![A-Za-z0-9])", evidence, re.I
+        )
+        if not ENUM_SELECTION.search(evidence) and shorthand is None:
             raise InvalidChange("Clearance group requires an explicit user choice")
     elif ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
         evidence
