@@ -24,7 +24,7 @@ CASES: list[dict[str, Any]] = [
     {
         "id": "K01",
         "topic": "bearing_model",
-        "expected_status": "FOUND",
+        "expected_status": "RELATED_EVIDENCE",
         "turns": ["请查 SKF 6206 开式深沟球轴承的 d/D/B 尺寸，并附厂家网页出处。不要保存参数。"],
         "required_facts": ["30", "62", "16"],
         "source_domain": "www.skf.com",
@@ -32,51 +32,62 @@ CASES: list[dict[str, Any]] = [
     {
         "id": "K02",
         "topic": "clearance",
-        "expected_status": "FOUND",
+        "expected_status": "RELATED_EVIDENCE",
         "turns": ["CN与C3游隙等级有什么区别？请给资料出处，不要推荐选型。"],
         "source_domain": "ntnamericas.com",
     },
     {
         "id": "K03",
         "topic": "clearance",
-        "expected_status": "INSUFFICIENT_EVIDENCE",
+        "acceptable_statuses": ["RELATED_EVIDENCE", "NOT_FOUND", "INSUFFICIENT_EVIDENCE"],
         "turns": ["6206的CN和C3游隙具体数值各是多少微米？请给来源。"],
         "forbid_numeric_units": True,
     },
     {
         "id": "K04",
         "topic": "fit",
-        "expected_status": "INSUFFICIENT_EVIDENCE",
+        "acceptable_statuses": ["RELATED_EVIDENCE", "NOT_FOUND", "INSUFFICIENT_EVIDENCE"],
         "turns": ["请查6206轴承采用k6/H7配合的具体公差数值。"],
         "forbid_numeric_units": True,
     },
     {
         "id": "K05",
         "topic": "material",
-        "expected_status": "NOT_FOUND",
+        "acceptable_statuses": ["RELATED_EVIDENCE", "NOT_FOUND", "CATALOG_UNAVAILABLE"],
         "turns": ["GCr15的导热率具体数值是多少？请查资料而不是猜。"],
         "forbid_numeric_units": True,
     },
     {
         "id": "K06",
         "topic": "lubrication",
-        "expected_status": "INSUFFICIENT_EVIDENCE",
+        "acceptable_statuses": ["RELATED_EVIDENCE", "NOT_FOUND", "INSUFFICIENT_EVIDENCE"],
         "turns": ["脂润滑的具体推荐黏度是多少cSt？请检索资料。"],
         "forbid_numeric_units": True,
     },
     {
         "id": "K07",
         "topic": "bearing_model",
-        "expected_status": "INSUFFICIENT_EVIDENCE",
+        "acceptable_statuses": ["RELATED_EVIDENCE", "NOT_FOUND", "INSUFFICIENT_EVIDENCE"],
         "turns": ["请确认SKF 6206-2RS变体的全部精确尺寸；不要把普通6206网页当作变体证据。"],
         "forbid_numeric_units": True,
     },
     {
         "id": "K08",
         "topic": "lubrication",
-        "expected_status": "FOUND",
+        "expected_status": "RELATED_EVIDENCE",
         "turns": ["为什么润滑脂一般比油更容易保留在轴承布置内部？请给厂家出处。"],
         "source_domain": "www.skf.com",
+    },
+    {
+        "id": "K09",
+        "turns": ["什么是径向载荷？请简单解释，不需要查询厂家数据。"],
+        "require_lookup": False,
+    },
+    {
+        "id": "K10",
+        "turns": ["RoBAS当前实际安装的材料目录有哪些？必须查询本机目录，不要猜。"],
+        "require_catalog": True,
+        "acceptable_statuses": ["FOUND", "CATALOG_UNAVAILABLE"],
     },
 ]
 # Only an explicit numerical quantity with a relevant unit counts as a leak.
@@ -100,20 +111,26 @@ def grade_knowledge_case(
         entry for turn in turns for entry in turn.get("trace", [])
         if entry.get("name") == "lookup_engineering_knowledge"
     ]
-    if not lookups:
-        errors.append("Model did not call lookup_engineering_knowledge")
-        return errors
     if any(entry.get("name") == "update_design_brief"
            for turn in turns for entry in turn.get("trace", [])):
         errors.append("Knowledge-only question unexpectedly attempted a write")
+    if not lookups and case.get("require_lookup", True):
+        errors.append("Model did not call lookup_engineering_knowledge")
+        return errors
+    allowed_statuses = case.get("acceptable_statuses", [case.get("expected_status")])
     requested = [
-        entry for entry in lookups if entry.get("knowledge_status") == case["expected_status"]
+        entry for entry in lookups
+        if entry.get("knowledge_status") in allowed_statuses
     ]
-    if not requested:
+    if lookups and not requested:
         errors.append(
-            "No knowledge lookup with expected evidence status "
-            + case["expected_status"]
+            "Lookup statuses do not match acceptable evidence states: "
+            + repr(allowed_statuses)
         )
+    if case.get("require_catalog") and not any(
+        entry.get("knowledge_query_type") == "catalog" for entry in lookups
+    ):
+        errors.append("Model did not call exact catalog lookup for catalog request")
     answer = turns[-1].get("answer", "")
     for value in case.get("required_facts", []):
         # Do not accept "62" merely because it appears inside product number 6206.
