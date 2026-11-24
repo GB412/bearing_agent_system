@@ -22,7 +22,7 @@ def build_system_prompt(status: dict[str, Any], revision: int) -> str:
         "一般概念可直接解释；涉及RoBAS支持项、厂家或目录精确数值时必须调用知识工具。"
         "工程选型问题可查询专业知识；检索结果可能只有相关背景，不代表能支持具体结论。"
         "工具无资料时可以解释通用原理，但不得编造RoBAS数据、来源或设计合格结论。"
-        "知识查询永远只读，未经用户明确确认不得写入设计参数。\\n"
+        "知识查询永远只读，未经用户明确确认不得写入设计参数。\n"
         "写入字段 path 必须严格使用 update_design_brief 工具描述中的完整合法路径，"
         "不能使用 requirements、requirements.life_hours 或 engineering.clearance 这样的错误路径。"
         "外径上限写 requirements.geometric_bounds[]，寿命下限写 requirements.constraints[]，"
