@@ -53,8 +53,6 @@ class TurnTools:
                     and re.search(r"决定|确定|指定|选定|定下来|直接选|来定|你定", evidence)):
                 raise InvalidChange("User did not explicitly delegate selection")
             scopes = {
-                "engineering.fits.": ("配合", "公差"),
-                "engineering.clearance.": ("游隙",),
                 "engineering.materials.": ("材料",),
                 "engineering.cage.": ("保持架",),
                 "engineering.lubrication.": ("润滑",),
@@ -97,8 +95,6 @@ class TurnTools:
                     if operation == "propose":
                         proposals = args.get("changes", [])
                         topics = {
-                            "engineering.fits.": "fit",
-                            "engineering.clearance.": "clearance",
                             "engineering.materials.": "material",
                             "engineering.cage.": "cage",
                             "engineering.lubrication.": "lubrication",
@@ -146,8 +142,6 @@ class TurnTools:
                                 for record in getattr(self.knowledge, "_records", [])
                             }
                             topics = {
-                                "engineering.fits.": "fit",
-                                "engineering.clearance.": "clearance",
                                 "engineering.materials.": "material",
                                 "engineering.cage.": "cage",
                                 "engineering.lubrication.": "lubrication",
@@ -302,11 +296,8 @@ class TurnTools:
             '{"path":"requirements.constraints[]",'
             '"value":{"field":"life_hours","operator":">=","value":20000,"unit":"h"},'
             '"evidence_span":"寿命至少20000小时"}'
-            "\n游隙示例 changes 项："
-            '{"path":"engineering.clearance.group","value":"CN",'
-            '"evidence_span":"游隙选CN"}'
             "\npropose 示例：operation=propose，changes=[{\"path\":"
-            "\"engineering.fits.inner_ring\",\"value\":\"k6\"}]；"
+            "\"engineering.lubrication.mode\",\"value\":\"grease\"}]；"
             "产生待采纳记录（仅推荐，不写 DesignBrief）。"
             "\naccept 示例：operation=accept，proposal_id=此前工具返回的ID，"
             "approval_evidence_span=当前用户说的\"按你推荐的来\"，changes=[]；"
