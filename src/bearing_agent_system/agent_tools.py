@@ -45,7 +45,7 @@ class TurnTools:
         """Small independent authorization guard; LLM handles intent nuances."""
         if not evidence or evidence not in message:
             raise InvalidChange("Approval evidence is not in the current user message")
-        if re.search(r"如果|假如|比如|先不|暂不|不要|不采纳|不采用|不接受|不按|"
+        if re.search(r"如果|假如|比如|先不|先别|暂不|还没|没有|尚未|不要|不采纳|不采用|不接受|不按|"
                      r"仅了解|只是问|[?？]", message):
             raise InvalidChange("Question, hypothetical or refusal cannot authorize adoption")
         if delegated:
@@ -181,7 +181,7 @@ class TurnTools:
                             ),
                         }
                     else:
-                        batch = UpdateBatch.model_validate(args)
+                        batch = UpdateBatch.model_validate({"operation": operation, "changes": args.get("changes", [])})
                         context = TrustedContext(
                             kind="user", message_id=self.message_id,
                             user_message=self.user_message,
