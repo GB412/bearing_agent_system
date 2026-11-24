@@ -1,5 +1,7 @@
 # Conversation Agent V1：五工具 ReAct 动态交互验收矩阵
 
+> **历史规划用例。** 当前 PR #7 使用 [DesignBrief/v2 字段合同](DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md)；涉及保存游隙、配合或将其判为必填的旧案例已经失效，应以 v2 的删除字段拒绝测试为准。
+
 > 版本：v1.3（2026-11-22，最小实现复杂度整改）；**设计与测试合同，尚未执行。**  
 > 参考：[ReAct 架构与工具合同](CONVERSATION_AGENT_V1_ARCHITECTURE.md)、[DGBDesignBrief/v1 字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md)。轴承范围：DGB、单一稳态、固定 d/D/B、五优化槽留待后续。
 
