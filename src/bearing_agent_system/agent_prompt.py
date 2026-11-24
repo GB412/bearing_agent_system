@@ -6,10 +6,14 @@ import json
 from typing import Any
 
 
-def build_system_prompt(status: dict[str, Any], revision: int) -> str:
+def build_system_prompt(
+    status: dict[str, Any], revision: int,
+    pending_recommendation: dict[str, Any] | None = None,
+) -> str:
     """The model can choose a question/tool; only Python can change trusted facts."""
     snapshot = json.dumps(
-        {"revision": revision, "design_status": status},
+        {"revision": revision, "design_status": status,
+         "pending_recommendation": pending_recommendation},
         ensure_ascii=False,
         separators=(",", ":"),
     )
@@ -23,6 +27,17 @@ def build_system_prompt(status: dict[str, Any], revision: int) -> str:
         "工程选型问题可查询专业知识；检索结果可能只有相关背景，不代表能支持具体结论。"
         "工具无资料时可以解释通用原理，但不得编造RoBAS数据、来源或设计合格结论。"
         "知识查询永远只读，未经用户明确确认不得写入设计参数。\n"
+        "推荐与采纳：当你给出可被采纳的具体工程选项时，先用"
+        "update_design_brief(operation=propose, changes=[path/value])登记一条待采纳推荐，"
+        "再向用户解释选项与未经工程校核的限制；propose 不写 DesignBrief。"
+        "用户在后续一轮说‘就按推荐的来/可以/同意’时，对应受信状态里的"
+        "pending_recommendation，使用 operation=accept、proposal_id 和"
+        "approval_evidence_span=当前用户同意的原文，不要要求用户重复选项或数值。"
+        "用户明确说某领域由你来推荐并指定时，仅在已经查询该领域相关工程知识且"
+        "依据和条件足够时，可在同一轮先 propose，再用 operation=delegate 和"
+        "当前轮明确授权原文采纳；结果仅为待工程校核的初步选择。"
+        "不得凭空编造推荐依据，不得覆盖用户已保存的不同选择。"
+        "用户只要解释或比较时不要 propose+accept，更不要误将提问当成批准。\n"
         "写入字段 path 必须严格使用 update_design_brief 工具描述中的完整合法路径，"
         "不能使用 requirements、requirements.life_hours 或 engineering.clearance 这样的错误路径。"
         "外径上限写 requirements.geometric_bounds[]，寿命下限写 requirements.constraints[]，"
