@@ -89,6 +89,7 @@ class ConversationAgent:
             "schema_version": brief.schema_version,
             "brief": brief.model_dump(mode="json"),
             "design_status": status.model_dump(mode="json"),
+            "pending_recommendation": self.service.store.pending_recommendation(session_id),
             "deliverable_status": "DRAFT_ONLY",
             "robas_template_ready": "NOT_ASSESSED",
         }
