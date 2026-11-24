@@ -410,7 +410,7 @@ def _validate_enum_user_choice(change: UpdateChange, context: TrustedContext) ->
         raise InvalidChange("Chosen enum value lacks matching user-worded evidence")
     if ENUM_UNDECIDED.search(context.user_message) and not ENUM_SELECTION.search(evidence):
         raise InvalidChange("Choice not confirmed: user explicitly remains undecided")
-    # A clipped evidence span like 'C3' cannot hide uncertainty or a question
+    # A clipped evidence span cannot hide uncertainty or a question
     # present in the complete trusted user turn.
     if ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
         context.user_message
