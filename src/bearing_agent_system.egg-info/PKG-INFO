@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: bearing-agent-system
+Version: 0.1.0
+Summary: Trusted DGB design brief foundation for a future conversation agent
+Requires-Python: >=3.11
+Requires-Dist: pydantic<3,>=2.7
+Provides-Extra: semantic
+Requires-Dist: sentence-transformers<6,>=3; extra == "semantic"
+Provides-Extra: agent
+Requires-Dist: langchain<2,>=1.0; extra == "agent"
+Requires-Dist: langchain-openai<2,>=1.0; extra == "agent"
+Requires-Dist: openai<3,>=2.0; extra == "agent"
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+Requires-Dist: langchain<2,>=1.0; extra == "dev"
+Requires-Dist: langchain-openai<2,>=1.0; extra == "dev"
+Requires-Dist: openai<3,>=2.0; extra == "dev"
