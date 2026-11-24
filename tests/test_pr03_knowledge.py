@@ -107,9 +107,9 @@ def test_tool_keeps_brief_revision_unchanged_and_old_tools_available(tmp_path):
         "update_design_brief", "get_design_status", "lookup_engineering_knowledge"
     ]
     before = service.get_brief("s")
-    answer = tools[2].invoke({"topic": "bearing_model", "query": "6206尺寸"})
+    answer = tools[2].invoke({"query": "6206尺寸"})
     after = service.get_brief("s")
-    assert answer["status"] == "FOUND"
+    assert answer["status"] == "RELATED_EVIDENCE"
     assert before == after
 
 
@@ -119,7 +119,7 @@ def test_agent_can_lookup_and_continue_ordinary_reply(tmp_path):
     model = ScriptedChatModel(replies=[
         tool_call(
             "lookup_engineering_knowledge",
-            {"topic": "bearing_model", "query": "6206基本尺寸"},
+            {"query": "6206基本尺寸"},
             "lookup-6206",
         ),
         AIMessage(content="SKF 6206 的主要外形尺寸为30×62×16mm；尚未进行寿命校核。"),
@@ -140,7 +140,7 @@ def test_agent_knowledge_then_user_write_same_turn(tmp_path):
     model = ScriptedChatModel(replies=[
         tool_call(
             "lookup_engineering_knowledge",
-            {"topic": "bearing_model", "query": "6206尺寸"},
+            {"query": "6206尺寸"},
             "lookup",
         ),
         tool_call(
@@ -196,16 +196,16 @@ def test_tool_receipt_has_source_ids_and_lookup_does_not_modify_brief(tmp_path):
     )
     before = service.get_brief("s")
     lookup = runner.tools()[2]
-    result = lookup.invoke({"topic": "bearing_model", "query": "6206尺寸"})
-    assert result["status"] == "FOUND"
-    assert runner.trace[-1]["knowledge_status"] == "FOUND"
+    result = lookup.invoke({"query": "6206尺寸"})
+    assert result["status"] == "RELATED_EVIDENCE"
+    assert runner.trace[-1]["knowledge_status"] == "RELATED_EVIDENCE"
     assert runner.trace[-1]["knowledge_ids"] == ["skf-6206-dimensions"]
     assert runner.trace[-1]["knowledge_source_urls"][0].startswith("https://www.skf.com/")
     assert service.get_brief("s") == before
-    result = lookup.invoke({"topic": "clearance", "query": "C3游隙数值范围"})
-    assert result["status"] == "INSUFFICIENT_EVIDENCE"
-    assert runner.trace[-1]["knowledge_status"] == "INSUFFICIENT_EVIDENCE"
-    assert runner.trace[-1]["knowledge_ids"] == ["ntn-clearance-classes"]
+    result = lookup.invoke({"query": "C3游隙数值范围"})
+    assert result["status"] == "RELATED_EVIDENCE"
+    assert runner.trace[-1]["knowledge_status"] == "RELATED_EVIDENCE"
+    assert "ntn-clearance-classes" in runner.trace[-1]["knowledge_ids"]
     assert service.get_brief("s") == before
 
 
