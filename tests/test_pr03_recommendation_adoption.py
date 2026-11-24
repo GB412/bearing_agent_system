@@ -108,7 +108,7 @@ def test_propose_does_not_write_and_later_approval_uses_stored_values(environmen
 
 @pytest.mark.parametrize("reply", [
     "不可以", "我不同意", "如果按你推荐的来会怎样？", "先别采用",
-    "你刚才推荐的方案是什么意思？",
+    "你刚才推荐的方案是什么意思？", "我可以再考虑一下",
 ])
 def test_approval_question_or_refusal_does_not_commit(environment, reply):
     service, _ = environment
@@ -208,6 +208,18 @@ def test_delegate_requires_matching_lookup_and_current_turn_scope(environment):
     })
     assert not denied["ok"]
     assert service.get_brief("third")[1] == 0
+
+    # Asking for advice is not delegated permission to save a selection.
+    t4 = tool(service, "配合帮我推荐一下", session="advice", turn_id="d4")
+    t4.knowledge = FitKnowledge()
+    t4.tools()[2].invoke({"query": "轴承配合"})
+    proposed = propose_fits(t4)
+    only_advice = t4.tools()[0].invoke({
+        "operation": "delegate", "proposal_id": proposed["proposal_id"],
+        "approval_evidence_span": "配合帮我推荐一下",
+    })
+    assert not only_advice["ok"]
+    assert service.get_brief("advice")[1] == 0
 
 
 class ScriptedModel(BaseChatModel):
