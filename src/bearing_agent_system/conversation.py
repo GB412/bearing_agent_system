@@ -117,6 +117,7 @@ class ConversationAgent:
                 )
             _, revision = self.service.get_brief(session_id)
             status = self.service.get_design_status(session_id).model_dump(mode="json")
+            pending = self.service.store.pending_recommendation(session_id)
             previous_messages = self.history.history(session_id, self.history_turns)
             self.history.begin_turn(session_id, user_turn_id, user_message)
 
@@ -130,7 +131,7 @@ class ConversationAgent:
             try:
                 agent = self.agent_factory(
                     self.model, turn_tools.tools(),
-                    system_prompt=build_system_prompt(status, revision),
+                    system_prompt=build_system_prompt(status, revision, pending),
                 )
                 messages = previous_messages + [{"role": "user", "content": user_message}]
                 # LangGraph recursion cap also limits model/tool cycles.
