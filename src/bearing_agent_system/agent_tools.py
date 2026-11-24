@@ -50,7 +50,7 @@ class TurnTools:
             raise InvalidChange("Question, hypothetical or refusal cannot authorize adoption")
         if delegated:
             if not (re.search(r"你来|帮我|替我|交给你|由你", evidence)
-                    and re.search(r"决定|确定|指定|选(?:择|定)?|推荐", evidence)):
+                    and re.search(r"决定|确定|指定|选定|定下来|直接选|来定|你定", evidence)):
                 raise InvalidChange("User did not explicitly delegate selection")
             scopes = {
                 "engineering.fits.": ("配合", "公差"),
@@ -67,7 +67,7 @@ class TurnTools:
                     raise InvalidChange("Delegated scope does not cover " + path)
         elif not (
             re.search(r"按你|按推荐|照你|采纳|同意|采用|接受|就按|就用|就这样|"
-                      r"就这个|确认采用|确认使用|可以|确定采用", evidence)
+                      r"就这个|确认采用|确认使用|确定采用", evidence)
             or message.strip() in {"好", "好的", "行", "可以", "同意", "确认", "就这样"}
         ):
             raise InvalidChange("User has not approved the pending recommendation")
