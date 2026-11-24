@@ -19,6 +19,20 @@ WRITE_CLAIM = re.compile(
     r"|(?:已|已经)(?:把|将).{0,12}(?:固定|锁定|设为|设成|改为)"
 )
 PAST_CONTEXT = ("此前", "以前", "之前", "上轮", "上次", "历史")
+NEGATED_WRITE = re.compile(
+    r"(?:没有|并未|尚未|未曾|未|没|不曾|从未|不)"
+    r"(?:把|将|实际|进行)?\s*"
+    r"(?:记录|保存|写入|录入|更新|修改|设置|登记)",
+    re.I,
+)
+
+
+def _positive_write_claim(text: str) -> bool:
+    """Conservatively ignore explicit denial of a claimed completed write."""
+    for phrase in re.split(r"[，,。；;\n]", text):
+        if WRITE_CLAIM.search(phrase) and not NEGATED_WRITE.search(phrase):
+            return True
+    return False
 STATUS_MARKER = "[[DESIGN_STATUS]]"
 # Only explicit model claims of confirmed status; not a user-intent classifier.
 CONFIRMED_LINE = re.compile(r"^\s*(?:\*\*)?已确认(?:\*\*)?(?:[：:]|.{0,12}(?:参数|工作温度))")
@@ -102,7 +116,7 @@ def needs_write_repair(answer: str, trace: list[dict[str, Any]]) -> bool:
         return False
     if any(t.get("name") == "get_design_status" for t in trace):
         return False
-    return bool(WRITE_CLAIM.search(answer)) and not any(
+    return _positive_write_claim(answer) and not any(
         marker in answer for marker in PAST_CONTEXT
     )
 
@@ -162,7 +176,7 @@ def _free_text_without_new_write_claims(answer: str) -> str:
         for i in range(0, len(parts), 2):
             phrase = parts[i]
             delimiter = parts[i + 1] if i + 1 < len(parts) else ""
-            if WRITE_CLAIM.search(phrase) and not any(
+            if _positive_write_claim(phrase) and not any(
                 mark in phrase for mark in PAST_CONTEXT
             ):
                 continue
