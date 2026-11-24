@@ -3,8 +3,10 @@
 - 文档版本：v0.7（PR-03 工程知识查询和检索可信性整改；PR-00 工程冻结仍 BLOCKED）
 - 更新日期：2026-11-24
 - 当前开发仓库：GB412/bearing_agent_system
-- 当前阶段：PR-01（#3）、PR-02（#4）已合并；PR-03（#6）正在 Draft 评审及真实 Embedding/DeepSeek 验收
+- 当前阶段：PR-01（#3）、PR-02（#4）已合并；PR-03（#6）为 Draft；PR #7 基于 PR-03 收敛 DesignBrief/v2（移除游隙/配合）
 - 状态：43 记录/324 字段历史审计已记录、PR-00 工程冻结 BLOCKED；单 Agent 已运行，三个工具中的知识查询仍为 Draft；PR-04/05 尚未实现
+
+> **执行口径更新（PR #7）**：DesignBrief/v2 直接删除游隙和配合的用户字段，保留材料、润滑、保持架、硬约束、优化目标与五优化槽。旧版本的用户层游隙/配合条目属于历史规划，RoBAS 43/324 审计中关于固定计算参数的记录仍有效；不进行旧会话迁移。详见 [v2 字段合同](agent/DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md)。
 
 ## 1. 项目定位
 
@@ -55,7 +57,7 @@
 1. 轴承对象：DGB、应用场景、型号（若用户提供）和设计边界。
 2. 固定几何边界：内径 d、外径 D、宽度 B，以及 RoBAS 输入所需的其他分析几何。
 3. 运行工况：内外圈转速、载荷分量和方向、温度、安装/运行条件等；具体必填项以 PR-00 审计后的 DATA 字段为准。
-4. 工程配置：游隙、配合、滚动体/套圈/保持架材料、保持架构型、润滑方式、润滑剂及所需物性、密封/精度要求等。
+4. 用户层工程配置：套圈/滚动体/保持架材料、保持架构型、润滑方式及润滑剂；游隙和配合由后续计算固定模板承担，不再是 DesignBrief 用户字段。
 5. 设计要求：用户明确提出的硬约束、希望改善的性能和其他偏好。
 6. 优化变量预留：Dw、Z、Dpw、fi、fo 的变量定义及待填标记；不在本阶段搜索或选值。
 7. 数据溯源：用户输入、数据库记录、标准条款、审核规则、公式派生、系统配置或参考 DATA profile 的来源。
@@ -76,7 +78,7 @@
 | 类别 | 含义 | 示例 |
 |---|---|---|
 | 用户固定条件 | 用户提供并希望保持不变的边界/工况 | d、D、B、载荷、转速 |
-| 工程配置 | 用户选择或 Agent 推荐后由用户接受 | 游隙、材料、润滑剂、配合 |
+| 工程配置 | 用户选择或 Agent 推荐后由用户接受 | 材料、保持架、润滑剂 |
 | 计算派生量 | 由已确认输入和明确公式计算 | 几何派生尺寸、物性换算、工作游隙（若公式和数据具备） |
 | 优化变量 | 交给未来优化模块提供 | Dw、Z、Dpw、fi、fo |
 | 求解器配置 | 拟静力模式、数值控制、输出配置等 | Mode=-1、经过审核的 solver profile |
@@ -103,7 +105,7 @@
 
 ## 5. 对话 Agent V1：自主 ReAct 与五工具（覆盖旧固定流程）
 
-最终行为设计详见 [Conversation Agent V1 架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md)，**字段/类型/单位/条件必需规则的唯一合同**见 [DGBDesignBrief/v1 字段目录](agent/DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md)。**本版以自主工具循环替换旧的「理解→更新→检查→选择动作→回复」固定五步骤，不另设独立提问规划器或 Supervisor。**
+最终行为设计详见 [Conversation Agent V1 架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md)，**字段/类型/单位/条件必需规则的唯一合同**见 [DGBDesignBrief/v2 当前字段合同](agent/DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md)。**本版以自主工具循环替换旧的「理解→更新→检查→选择动作→回复」固定五步骤，不另设独立提问规划器或 Supervisor。**
 
 | Agent 可见工具 | 具体职责 | 权限边界 |
 |---|---|---|
@@ -277,7 +279,7 @@ PR-00 未解决的工程计算阻断不得被宣称已关闭；**PR-01～02 的�
 
 ## 15. 2026-11-22：Conversation Agent V1 方案修订与项目看板
 
-**最终设计入口：** [五工具 ReAct 详细架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md) · [DGBDesignBrief/v1 字段合同](agent/DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) · [ReAct 与五工具测试矩阵](agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md)。
+**最终设计入口：** [五工具 ReAct 详细架构](agent/CONVERSATION_AGENT_V1_ARCHITECTURE.md) · [DGBDesignBrief/v2 当前字段合同](agent/DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md) · [ReAct 与五工具测试矩阵](agent/CONVERSATION_AGENT_V1_ACCEPTANCE.md)。
 
 用户明确修订：采用 **Conversation Agent 自主 ReAct 工具循环**；工具②仅返回已知/缺失/待确认/冲突，**Agent 自己决定问什么、怎么问**；取消独立确认工具，其能力合并进工具①；工具⑤为最终需求检查与版本化导出；不开发独立 `check_solver_compatibility`。这是目前唯一有效的 Agent V1 行为设计，旧固定五步骤与五动作路由不再适用。
 
