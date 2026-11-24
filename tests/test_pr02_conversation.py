@@ -662,13 +662,15 @@ def test_write_tool_description_lists_exact_paths_and_examples(environment):
     service, _ = environment
     write_tool = TurnTools(
         service=service, session_id="s", message_id="m",
-        user_message="游隙选CN",
+        user_message="润滑方式选脂润滑",
     ).tools()[0]
     description = write_tool.description
     assert all(path in description for path in FIELDS)
     assert '"path":"requirements.geometric_bounds[]"' in description
     assert '"field":"life_hours","operator":">="' in description
-    assert '"path":"engineering.clearance.group","value":"CN"' in description
+    assert "engineering.clearance" not in description
+    assert "engineering.fits" not in description
+    assert '"path":"engineering.lubrication.mode"' in description
 
 
 def test_failed_write_keeps_independent_engineering_answer(environment):
