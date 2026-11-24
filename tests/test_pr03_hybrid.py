@@ -188,3 +188,12 @@ def test_robas_query_trace_preserves_source_hash_field_and_row(tmp_path):
         "source_pk": 100,
     }]
     assert service.get_brief("s") == before
+
+    listed = exposed.invoke({
+        "query": "目录有哪些润滑剂",
+        "catalog_query": {"entity_type": "lubricant", "operation": "list"},
+    })
+    assert listed["status"] == "FOUND"
+    assert listed["catalog_source"]["sha256"] == "test-sha2"
+    assert tools.trace[-1]["knowledge_provenance"][0]["source_hash"] == "test-sha2"
+    assert tools.trace[-1]["knowledge_source_urls"] == []
