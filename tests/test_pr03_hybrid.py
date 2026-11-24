@@ -104,3 +104,44 @@ def test_original_knowledge_repository_remains_read_only():
     assert result["status"] == "RELATED_EVIDENCE"
     assert result["query_type"] == "concept"
     assert any("source" in record for record in result["results"])
+
+
+def test_irrelevant_concept_does_not_return_top_three_without_relevance(tmp_path):
+    repo = HybridKnowledge(
+        records=list(KnowledgeRepository()._records),
+        catalog_path=tmp_path / "absent.json",
+        index_path=tmp_path / "absent-vectors.json",
+    )
+    repo._encoder_checked = True  # Force documented lexical fallback.
+    outcome = repo.search("火星探测器的通信协议是什么？")
+    assert outcome["status"] == "NOT_FOUND"
+    assert outcome["results"] == []
+    assert outcome["retrieval_method"] == "lexical_fallback"
+
+
+def test_lexical_fallback_is_labelled_and_does_not_pretend_semantics(tmp_path):
+    repo = HybridKnowledge(
+        records=list(KnowledgeRepository()._records),
+        catalog_path=tmp_path / "absent.json",
+        index_path=tmp_path / "absent-vectors.json",
+    )
+    repo._encoder_checked = True
+    answer = repo.search("C3和CN游隙有何区别")
+    assert answer["status"] == "RELATED_EVIDENCE"
+    assert answer["retrieval_method"] == "lexical_fallback"
+
+
+class ZeroEncoder:
+    def encode(self, sentences):
+        return [[0.0, 0.0] for _ in sentences]
+
+
+def test_embedding_with_no_relevant_vector_returns_not_found(tmp_path):
+    repo = HybridKnowledge(
+        records=[{"id": "a", "title": "套圈", "summary": "轴承配合"}],
+        encoder=ZeroEncoder(), index_path=tmp_path / "embedding.json",
+    )
+    result = repo.search("无关问题")
+    assert result["retrieval_method"] == "embedding"
+    assert result["status"] == "NOT_FOUND"
+    assert result["results"] == []
