@@ -382,7 +382,7 @@ ENUM_UNDECIDED = re.compile(
     r"还没选|尚未选|暂时不选|仅了解|只想了解", re.I
 )
 ENUM_NEGATION = re.compile(
-    r"不(?:想|要|会|考虑|采用|使用|选|选择)|不用|未采用|没选|"
+    r"不(?:想|要|会|考虑|采用|使用|选|选择|确认|确定)|不用|未采用|没选|"
     r"不要|排除|取消|撤销", re.I
 )
 ENUM_SELECTION = re.compile(
@@ -431,8 +431,8 @@ def _validate_enum_user_choice(change: UpdateChange, context: TrustedContext) ->
         # Reject if the negated choice is the same requested value.
         for token in expected:
             negated = re.compile(
-                r"(?:不想|不要|不考虑|不采用|不使用|不选(?:择)?|不用|未采用|没选|"
-                r"排除|取消|撤销)\s*(?:采用|使用|选择|选)?\s*"
+                r"(?:不想|不要|不确认|不确定|不考虑|不采用|不使用|不选(?:择)?|不用|未采用|没选|"
+                r"排除|取消|撤销)\s*(?:采用|使用|选择|选|确认|确定)?\s*"
                 + re.escape(token), re.I
             )
             if negated.search(context.user_message):
