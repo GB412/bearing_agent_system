@@ -159,17 +159,18 @@
           "unit": null
         }
       ],
-      "applicability": [
-        "不提供某型号数值区间",
-        "不能确定当前工况必须选哪一等级"
-      ],
+      "applicability": "滚动轴承游隙选取的影响因素",
       "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
       "source": {
-        "publisher": "滚动轴承游隙选取的影响因素",
+        "publisher": "NSK",
         "title": "Bearing technical guidance",
         "url": "https://www.nsk.com/tools-resources/abc-bearings/fits-and-internal-clearance/",
         "source_type": "manufacturer_technical_guide"
-      }
+      },
+      "limitations": [
+        "不提供某型号数值区间",
+        "不能确定当前工况必须选哪一等级"
+      ]
     },
     {
       "id": "ntn-clearance-c2-c3",
@@ -187,17 +188,18 @@
           "unit": null
         }
       ],
-      "applicability": [
-        "不能推导游隙的微米数值",
-        "C0静载荷符号不得与游隙等级混淆"
-      ],
+      "applicability": "通用游隙等级概念",
       "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
       "source": {
-        "publisher": "通用游隙等级概念",
+        "publisher": "NTN Americas",
         "title": "Bearing technical guidance",
         "url": "https://ntnamericas.com/technical-resources/faqs/",
         "source_type": "manufacturer_technical_guide"
-      }
+      },
+      "limitations": [
+        "不能推导游隙的微米数值",
+        "C0静载荷符号不得与游隙等级混淆"
+      ]
     },
     {
       "id": "ntn-ring-fit-and-creep",
@@ -215,17 +217,18 @@
           "unit": null
         }
       ],
-      "applicability": [
-        "不提供具体k6/H7尺寸公差",
-        "不能据此证明任何具体配合可靠"
-      ],
+      "applicability": "滚动轴承安装配合原理",
       "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
       "source": {
-        "publisher": "滚动轴承安装配合原理",
+        "publisher": "NTN Americas",
         "title": "Bearing technical guidance",
         "url": "https://ntnamericas.com/technical-resources/shaft-housing-fits/",
         "source_type": "manufacturer_technical_guide"
-      }
+      },
+      "limitations": [
+        "不提供具体k6/H7尺寸公差",
+        "不能据此证明任何具体配合可靠"
+      ]
     },
     {
       "id": "nsk-fit-affects-clearance",
@@ -243,17 +246,18 @@
           "unit": null
         }
       ],
-      "applicability": [
-        "未提供定量计算公式",
-        "不能推导具体过盈量"
-      ],
+      "applicability": "滚动轴承配合及游隙分析",
       "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
       "source": {
-        "publisher": "滚动轴承配合及游隙分析",
+        "publisher": "NSK",
         "title": "Bearing technical guidance",
         "url": "https://www.nsk.com/tools-resources/abc-bearings/fits-and-internal-clearance/",
         "source_type": "manufacturer_technical_guide"
-      }
+      },
+      "limitations": [
+        "未提供定量计算公式",
+        "不能推导具体过盈量"
+      ]
     },
     {
       "id": "skf-cage-selection-factors",
@@ -271,17 +275,18 @@
           "unit": null
         }
       ],
-      "applicability": [
-        "不含RoBAS保持架材料目录",
-        "不能直接认定某材料适用温度或转速"
-      ],
+      "applicability": "滚动轴承保持架选择原理",
       "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
       "source": {
-        "publisher": "滚动轴承保持架选择原理",
+        "publisher": "SKF",
         "title": "Bearing technical guidance",
         "url": "https://www.skf.com/mena/products/rolling-bearings/principles-of-rolling-bearing-selection/bearing-selection-process/bearing-execution/cages",
         "source_type": "manufacturer_technical_guide"
-      }
+      },
+      "limitations": [
+        "不含RoBAS保持架材料目录",
+        "不能直接认定某材料适用温度或转速"
+      ]
     },
     {
       "id": "skf-material-components",
@@ -299,17 +304,18 @@
           "unit": null
         }
       ],
-      "applicability": [
-        "不提供特定工况最优材料",
-        "不说明RoBAS材料数据库具体支持项"
-      ],
+      "applicability": "滚动轴承材料基础知识",
       "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
       "source": {
-        "publisher": "滚动轴承材料基础知识",
+        "publisher": "SKF",
         "title": "Bearing technical guidance",
         "url": "https://www.skf.com/se/products/rolling-bearings/principles-of-rolling-bearing-selection/general-bearing-knowledge/bearing-basics/components-and-materials",
         "source_type": "manufacturer_technical_guide"
-      }
+      },
+      "limitations": [
+        "不提供特定工况最优材料",
+        "不说明RoBAS材料数据库具体支持项"
+      ]
     },
     {
       "id": "skf-lubrication-choice",
@@ -327,17 +333,18 @@
           "unit": null
         }
       ],
-      "applicability": [
-        "无具体油品牌号推荐",
-        "不能单靠润滑剂名称断言RoBAS计算就绪"
-      ],
+      "applicability": "SKF润滑脂选择的一般考虑因素",
       "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
       "source": {
-        "publisher": "SKF润滑脂选择的一般考虑因素",
+        "publisher": "SKF",
         "title": "Bearing technical guidance",
         "url": "https://www.skf.com/il/products/super-precision-bearings/principles/bearing-selection-process/lubrication/suitable-grease",
         "source_type": "manufacturer_technical_guide"
-      }
+      },
+      "limitations": [
+        "无具体油品牌号推荐",
+        "不能单靠润滑剂名称断言RoBAS计算就绪"
+      ]
     }
   ]
 }
