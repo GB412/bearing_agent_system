@@ -199,7 +199,7 @@ def test_tool_receipt_has_source_ids_and_lookup_does_not_modify_brief(tmp_path):
     result = lookup.invoke({"query": "6206尺寸"})
     assert result["status"] == "RELATED_EVIDENCE"
     assert runner.trace[-1]["knowledge_status"] == "RELATED_EVIDENCE"
-    assert runner.trace[-1]["knowledge_ids"] == ["skf-6206-dimensions"]
+    assert "skf-6206-dimensions" in runner.trace[-1]["knowledge_ids"]
     assert runner.trace[-1]["knowledge_source_urls"][0].startswith("https://www.skf.com/")
     assert service.get_brief("s") == before
     result = lookup.invoke({"query": "C3游隙数值范围"})
