@@ -1,4 +1,6 @@
-# PR-03：有来源的工程知识查询（最小实现）
+# PR-03：有来源的工程知识查询（初版历史记录）
+
+> **历史版本声明（2026-11-24）**：本文件记录 PR-03 初版的关键词目录方案，**不再代表当前工具接口或验收协议**。当前运行实现是“RoBAS 精确目录 + 可选中文语义检索”，模型可见接口仅为 `lookup_engineering_knowledge(query, catalog_query=None)`，不再暴露 `topic`。状态以精确查询的 `FOUND/CATALOG_UNAVAILABLE`、概念检索的 `RELATED_EVIDENCE/NOT_FOUND` 等为准。请以 [PR-03 当前混合检索实施与验收](HYBRID_KNOWLEDGE_IMPLEMENTATION.md) 为唯一现行说明；下面仅作为历史资料保留。
 
 ## 本 PR 做什么
 
