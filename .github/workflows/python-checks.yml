@@ -24,3 +24,4 @@ jobs:
       - run: python -m bearing_agent_system.chat_cli --help
       - run: python examples/pr02_live_eval.py --help
       - run: python examples/pr03_live_eval.py --help
+      - run: python examples/pr03_semantic_smoke.py --help
