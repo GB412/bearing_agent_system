@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from bearing_agent_system import DesignBriefService, SQLiteDesignBriefStore
+from bearing_agent_system.agent_tools import TurnTools
 from bearing_agent_system.hybrid_knowledge import HybridKnowledge
 from bearing_agent_system.knowledge import KnowledgeRepository
 
@@ -145,3 +147,44 @@ def test_embedding_with_no_relevant_vector_returns_not_found(tmp_path):
     assert result["retrieval_method"] == "embedding"
     assert result["status"] == "NOT_FOUND"
     assert result["results"] == []
+
+
+def test_robas_query_trace_preserves_source_hash_field_and_row(tmp_path):
+    repository = KnowledgeRepository()
+    repository._hybrid = HybridKnowledge(
+        records=[], catalog_path=fixture(tmp_path),
+        index_path=tmp_path / "vectors.json",
+    )
+    service = DesignBriefService(SQLiteDesignBriefStore(tmp_path / "brief.sqlite"))
+    tools = TurnTools(
+        service=service, session_id="s",
+        message_id="m", user_message="查6206原始C0",
+        knowledge=repository,
+    )
+    before = service.get_brief("s")
+    exposed = tools.tools()[2]
+    assert "topic" not in exposed.args_schema.model_json_schema()["properties"]
+    result = exposed.invoke({
+        "query": "查6206原始C0",
+        "catalog_query": {
+            "entity_type": "bearing_model", "operation": "get",
+            "name": "6206", "field": "C0_source",
+        },
+    })
+    assert result["status"] == "FOUND"
+    receipt = tools.trace[-1]
+    assert receipt["knowledge_query_type"] == "catalog"
+    assert receipt["retrieval_method"] == "exact"
+    assert receipt["knowledge_source_urls"] == []
+    assert receipt["knowledge_ids"] == ["T_SKFA01:100"]
+    assert receipt["knowledge_provenance"] == [{
+        "record_id": "T_SKFA01:100",
+        "source_type": "robas_catalog",
+        "source_id": "bearing_models",
+        "source_hash": "test-sha3",
+        "source_url": None,
+        "source_field": ["C0_source"],
+        "source_row": None,
+        "source_pk": 100,
+    }]
+    assert service.get_brief("s") == before
