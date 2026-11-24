@@ -56,9 +56,6 @@ LABELS = {
     "engineering.cage.material_id": "保持架材料",
     "engineering.lubrication.mode": "润滑方式",
     "engineering.lubrication.lubricant_id": "润滑剂",
-    "engineering.fits.inner_ring": "内圈配合",
-    "engineering.fits.outer_ring": "外圈配合",
-    "engineering.clearance": "游隙",
 }
 VALUES = {"grease": "脂润滑", "oil": "油润滑", "other": "其他"}
 UNITS = {"degC": "℃"}
