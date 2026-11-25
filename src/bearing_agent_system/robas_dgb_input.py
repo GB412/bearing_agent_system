@@ -10,11 +10,11 @@ geometry: RoBAS DGBGeometry/SingleRowDeepGroove*Race/StraightPocketCage.
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_EVEN
 import hashlib
 import io
 import math
+from dataclasses import dataclass
+from decimal import Decimal, ROUND_HALF_EVEN
 from pathlib import Path
 from typing import Mapping
 
@@ -197,9 +197,10 @@ class PreparedData:
 def build_dgb_data(
     *, brief: DesignBrief, candidate: Mapping[str, float | int],
     reference_data: str | Path, material_csv: str | Path,
-    lubricant_csv: str | Path, profile: DGBProfile = DGBProfile(),
+    lubricant_csv: str | Path, profile: DGBProfile | None = None,
 ) -> PreparedData:
     """Produce isolated DATA bytes; never edit the reference DATA or RoBAS resources."""
+    profile = profile or DGBProfile()
     if brief.schema_version != "DGBDesignBrief/v2" or brief.bearing.type != "DGB":
         raise RoBASInputError("Only DGBDesignBrief/v2 is supported")
     for name in ("axial_load_direction", "rotation_direction", "misalignment",
