@@ -225,11 +225,11 @@ def verified_reply(
         natural = "\n".join(
             line for line in natural.splitlines()
             if not (
-                (result.unresolved and re.match(
-                    r"^\\s*(?:\\*\\*)?本轮仍未保存[：:]", line
+                (result.unresolved and line.lstrip().removeprefix("**").startswith(
+                    ("本轮仍未保存：", "本轮仍未保存:")
                 ))
-                or (result.applied and re.match(
-                    r"^\\s*(?:\\*\\*)?本轮实际已写入[：:]", line
+                or (result.applied and line.lstrip().removeprefix("**").startswith(
+                    ("本轮实际已写入：", "本轮实际已写入:")
                 ))
             )
         ).strip()
