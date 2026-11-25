@@ -165,7 +165,7 @@ def test_reference_sha_prevents_using_wrong_fixed_template(source_files):
 
 
 @pytest.mark.parametrize("mutation,message", [
-    ({"Dw_mm": 40.0}, "Shoulder diameters"),
+    ({"Dw_mm": 60.0}, "Shoulder diameters"),
     ({"Z": 24}, "Adjacent balls"),
     ({"fi": 0.49}, "Invalid ball geometry"),
     ({"Z": 12.0}, "integer"),
