@@ -219,6 +219,20 @@ def verified_reply(
     if UNSUPPORTED_CLAIMS.search(answer):
         answer = "当前仅建立需求草案，尚未进行工程校核、RoBAS 验证或 CAD 生成。"
     natural = _free_text_without_new_write_claims(answer)
+    # The service already emits verified per-field receipts. Do not repeat
+    # model-authored failed-write or committed-write receipt lines below them.
+    if result.unresolved or result.applied:
+        natural = "\n".join(
+            line for line in natural.splitlines()
+            if not (
+                (result.unresolved and re.match(
+                    r"^\\s*(?:\\*\\*)?本轮仍未保存[：:]", line
+                ))
+                or (result.applied and re.match(
+                    r"^\\s*(?:\\*\\*)?本轮实际已写入[：:]", line
+                ))
+            )
+        ).strip()
     # Explicit structured status request from the model: render actual SQLite
     # status without inferring intent from the user's Chinese vocabulary.
     if STATUS_MARKER in natural:
