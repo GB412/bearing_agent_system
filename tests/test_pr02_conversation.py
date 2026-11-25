@@ -53,9 +53,13 @@ def param(path: str, value: Any, evidence: str, unit: str | None = None) -> dict
 
 
 @pytest.fixture
-def environment(tmp_path):
+def environment(tmp_path, catalog_path):
+    from bearing_agent_system.catalog_choices import CatalogChoices
+
     db = tmp_path / "agent.sqlite3"
-    service = DesignBriefService(SQLiteDesignBriefStore(db))
+    service = DesignBriefService(SQLiteDesignBriefStore(
+        db, catalog_choices=CatalogChoices(catalog_path)
+    ))
     history = ConversationStore(db)
     return service, history
 
@@ -536,7 +540,7 @@ def test_partial_batch_then_corrected_enum_keeps_both_valid_fields(environment):
         "s", "油润滑；钢球采用GCr15", turn_id="partial-repair"
     )
     assert result.revision == 2
-    assert "本轮实际已写入：钢球材料=GCr15" in result.answer
+    assert "钢球材料=material:GCr15" in result.answer
     assert "润滑方式=油润滑" in result.answer
     assert "本轮仍未保存" not in result.answer
     assert result.tool_trace[0]["applied_changes"] == ["engineering.materials.ball_id"]
@@ -544,7 +548,7 @@ def test_partial_batch_then_corrected_enum_keeps_both_valid_fields(environment):
         "engineering.lubrication.mode"
     )
     assert result.tool_trace[1]["applied_changes"] == ["engineering.lubrication.mode"]
-    assert service.get_brief("s")[0].engineering.materials.ball_id.value == "GCr15"
+    assert service.get_brief("s")[0].engineering.materials.ball_id.value == "material:GCr15"
     assert service.get_brief("s")[0].engineering.lubrication.mode.value == "oil"
     assert not reconcile_writes(result.tool_trace).unresolved
 
