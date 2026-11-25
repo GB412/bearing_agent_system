@@ -490,7 +490,7 @@ def test_cage_analysis_not_overwritten_by_summary_guard(environment):
     assert model.calls == 1
     assert result.tool_trace == []
     assert result.revision == 0
-    assert service.get_brief("s")[0].engineering.cage.type is None
+    assert "type" not in service.get_brief("s")[0].engineering.cage.model_dump()
 
 
 def test_oil_invalid_enum_then_success_is_not_reported_as_failure(environment):

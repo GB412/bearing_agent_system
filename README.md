@@ -26,7 +26,7 @@
 
 GitHub PR #1（RoBAS 输入审计）和 PR #2（五工具 ReAct 架构）均已合并；工程适配状态仍为 **BLOCKED**。PR-01 的参数目录、DesignBrief、原子写入、内容 revision 与简洁状态检查已实现，PR-01（GitHub #3）已合并。PR-02（GitHub #4）也已合并到 main；PR-03 正在单独分支开发。PR-02 提供单会话串行 ReAct、多轮对话与只读草案预览；`operation_key` 仅在实际重复工具写入风险出现时再实现；PR-05 才正式完成版本绑定的整份接受与导出。
 
-DGB V1 固定外形尺寸 d/D/B，获取实际轴承载荷、套圈转速及假定工作温度，收集材料、保持架、润滑等配置与设计要求（包括硬约束、优化目标）；游隙和配合不在 DesignBrief 中；Dw、Z、Dpw、fi、fo 留给未来优化模块。
+DGB V1 固定外形尺寸 d/D/B，获取实际轴承载荷、套圈转速及假定工作温度，收集材料、保持架材料、润滑等配置与设计要求（包括硬约束、优化目标）；保持架类型、游隙和配合不在 DesignBrief 中；Dw、Z、Dpw、fi、fo 留给未来优化模块。
 
 工具 `finalize_design_brief` 的「需求完整」与工具①对当前摘要的「整份用户确认」是不同概念，二者均**不等于** RoBAS 43/324 输入模板可运行。材料、润滑与部分曲率/保持架映射仍有审计阻断；不编造工程数值、不将参考 DATA 默认值当成用户确认。
 
@@ -81,6 +81,8 @@ python examples/pr03_live_eval.py --model deepseek-flash --max-cases 4
 
 ## PR #7：DesignBrief/v2 用户层收敛（Draft）
 
-当前测试分支直接删除 `engineering.clearance` 和 `engineering.fits` 及四条子路径；`/brief`、`/status` 不再展示或追问，写入、提案及采纳均不允许这些字段。游隙与配合知识仍可只读解释；RoBAS 模板中的固定值由后续计算适配层独立负责，本次不修改。
+当前测试分支直接删除 `engineering.cage.type`、`engineering.clearance` 和 `engineering.fits`，共五条叶字段路径；保留保持架材料；`/brief`、`/status` 不再展示或追问，写入、提案及采纳均不允许这些字段。游隙与配合知识仍可只读解释；保持架分析构型与 RoBAS 模板中的固定值由后续计算适配层独立负责，本次不修改。
 
 `schema_version` 为 `DGBDesignBrief/v2`，本次**不迁移、不兼容旧 JSON/SQLite 会话**，请使用新 SQLite 数据库运行验证。详见 [v2 字段合同](docs/agent/DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md)。
+
+本次本地修改的事实与验证范围见 [项目说明书](docs/PROJECT_MANUAL.md) 和 [追加变更记录](docs/PROJECT_CHANGELOG.md)。

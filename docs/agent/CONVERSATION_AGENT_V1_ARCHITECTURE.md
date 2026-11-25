@@ -1,21 +1,23 @@
 # Conversation Agent V1：受约束 ReAct 架构与工具合同
 
-> 版本：v1.3（2026-11-22，PR #2 最小实现复杂度修订）；状态：**设计规范，Agent 业务代码尚未实现**。  
-> GitHub：GB412/bearing_agent_system，设计 PR #2；PR-00 #1 仍在评审。  
-> 依据：[项目总控](../00_MASTER_PLAN.md) · [动态交互验收](CONVERSATION_AGENT_V1_ACCEPTANCE.md) · [RoBAS PR-00 审计](../pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) · [DGBDesignBrief/v1 字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) · [324 字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)。  
+> 版本：v1.4（2026-11-25，PR #7 用户层字段收敛）；状态：**现有三工具实现与后续五工具规划，字段以 DesignBrief/v2 为准**。
+> GitHub：GB412/bearing_agent_system；PR-01（#3）、PR-02（#4）已合并；PR-03（#6）与当前字段收敛 PR #7 尚待验收。
+> 依据：[项目总控](../00_MASTER_PLAN.md) · [动态交互验收](CONVERSATION_AGENT_V1_ACCEPTANCE.md) · [RoBAS PR-00 审计](../pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md) · [DGBDesignBrief/v2 字段合同](DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md) · [324 字段矩阵](../parameter_catalog/DGB_ROBAS_QUASI_STATIC_INPUT_MATRIX.md)。
 > 本文件**替代**原有「interpret → validate → assess → choose_next_action → compose」固定流程及旧五动作路由，不新增平行架构。
 
 ## 0. 项目负责人：一页看懂 V1
 
-**目标**：通过一个 Conversation Agent 与用户多轮对话，获取、澄清、解释、推荐和确认深沟球轴承（DGB）的设计需求，生成版本化的 `DGBDesignBrief/v1`，供未来五变量优化及 RoBAS 拟静力学输入适配使用。
+**目标**：通过一个 Conversation Agent 与用户多轮对话，获取、澄清、解释、推荐和确认深沟球轴承（DGB）的设计需求，生成版本化的 `DGBDesignBrief/v2`，供未来五变量优化及 RoBAS 拟静力学输入适配使用。
 
 **架构**：一个自主决策的 Conversation Agent，最多暴露 **5 个工具**。模型自主决定「问什么、怎么问、何时查知识、何时推荐、是否继续调用工具」；确定性程序决定「什么值能写入、来源是否可信、哪些字段缺失、方案是否符合审核规则、何时可宣称交付完成」。不用 Supervisor、多专业 Agent、复杂通用规则引擎。
+
+**当前只暴露工具①②③；工具④⑤为后续规划。** 当前初步推荐通过工具①的 `propose/accept/delegate` 执行，依据未工程审核时明确标记。以下完整合同描述规划目标，不代表所有操作已实现。
 
 **工具**：
 1. `update_design_brief`：唯一受信写入，保存/修改用户明确提供的参数或接受已展示的推荐。
 2. `get_design_status`：**简单状态查询**，只读当前已知、缺失、待确认、冲突；**不替模型决定提问顺序**。
 3. `lookup_engineering_knowledge`：查询专业解释依据、型号/材料/润滑/游隙/配合资料；区分模型一般知识与可追溯的工程数值。
-4. `recommend_engineering_config`：读取当前受信设计任务，按经审核的工程规则筛选材料/保持架、润滑或游隙/配合组合，生成**待确认提案**。
+4. `recommend_engineering_config`：读取当前受信设计任务，按经审核的工程规则筛选套圈/钢球/保持架材料及润滑组合，生成**待确认提案**。
 5. `finalize_design_brief`：检查用户层需求是否完整和一致，并返回/导出版本化 DesignBrief、未决项及交付状态。
 
 **不设置**：独立 `confirm_recommendation`（并入工具①）、`check_solver_compatibility`（用户决定 V1 暂不设）、`question_planner`、独立搜索 Agent、求解器运行工具和 CAD 工具。
@@ -24,20 +26,20 @@
 
 ## 1. 需求范围、字段合同和阶段准入
 
-用户层参数不是一张任意可增字段的 JSON。**PR-01 先冻结 [DGBDesignBrief/v1 字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md)**，它是工具①的字段/类型白名单、工具②的缺项依据和工具⑤的需求层完整性依据；RoBAS 43/324 是**不同层级**的协议目录，不能混用。
+用户层参数不是一张任意可增字段的 JSON。**当前采用 [DGBDesignBrief/v2 字段合同](DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md)**，它是工具①的字段/类型白名单、工具②的缺项依据和工具⑤的需求层完整性依据；RoBAS 43/324 是**不同层级**的协议目录，不能混用。
 
 | 类别 | 典型字段 | 当前规则 |
 |---|---|---|
 | 固定设计边界 | d、D、B；内外圈 rpm；单轴承 Fr/Fa；假定工作温度 | 需要明确语义、单位、来源；范围/估计不得静默当固定值 |
-| 用户选择的工程配置 | 内外圈/钢球/保持架材料、保持架类型、润滑、初始游隙、内外圈配合 | 用户直接指定或接受审核推荐；数据来源可靠性与用户接受分开 |
+| 用户选择的工程配置 | 内外圈/钢球/保持架材料、润滑方式及润滑剂 | 用户直接指定或接受审核推荐；数据来源可靠性与用户接受分开 |
 | 条件项 | 轴/座尺寸、力矩/错位、方向、特殊装配 | 由条件性规则判断是否需要，不将全部底层字段做用户问卷 |
 | 用户目标和限制 | 最低寿命、功耗偏好、D 的上限等 | 以结构化约束/偏好记录，不假装已成为优化器可计算指标 |
 | 五个优化槽 | Dw、Z、Dpw、fi、fo | 默认 `optimize/null`，允许用户设置上下限或锁定值 |
-| 工程数据/求解器配置 | 材料物性、派生几何、Solver profile | 由未来可信数据源/审核映射提供，不混成用户事实 |
+| 工程数据/求解器配置 | 材料物性、派生几何、保持架分析构型、游隙/配合固定值、Solver profile | 由未来可信数据源/审核映射提供，不混成用户事实 |
 
 **参数目录必须可执行，而不只是自然语言列表**：每个用户层字段定义 canonical path、类型、单位、R 必需 / C 条件必需 / O 可选 / OPT 优化 / SYS 系统、可接受的值形状、基本跨字段检查，以及用户层 `brief_complete` 判定条件。V1 的条件判断仅用少量直接函数；**不建立针对 RoBAS 43/324 字段的动态工程规则系统**。底层字段映射、派生和协议适用性统一留给 PR-06 专业适配层。
 
-例如 `D≤52 mm` 应进入 `requirements.geometric_bounds[]`，不能把 `dimensions.D_mm` 写成已确定的 52；`CN/C3` 游隙组是区间，不得擅自视作唯一初始/工作游隙值。`operating.temperature_c` 明确是选定的分析工作温度，不能直接由环境温度替代。
+例如 `D≤52 mm` 应进入 `requirements.geometric_bounds[]`，不能把 `dimensions.D_mm` 写成已确定的 52；保持架类型、游隙和配合已从用户层删除，不列为缺项、不提问、不写入或推荐；其分析配置留给后续受信适配层，不能冒充用户确认。`operating.temperature_c` 明确是选定的分析工作温度，不能直接由环境温度替代。
 
 PR-00 工程审计未冻结的事项仍阻断后续真实 RoBAS 模板就绪，但**不阻断单纯的用户层字段模型和对话能力开发（须经项目负责人批准 PR）**。
 
@@ -105,11 +107,11 @@ Conversation Agent（LLM）
 | `turn_id` / `request_id` | 标识一条用户消息与其来源；如客户端可能重复提交，可在回合入口做简单重复请求识别 | **PR-02 随真实会话入口实现**；不要求 PR-01 建立完整回合恢复机制 |
 | `operation_key` | 仅当同一 ReAct 回合可能发生多次独立写入且确有重复执行/重试风险时，区分同轮不同写入操作 | **PR-04 或实际出现需求时再实现**，不作为 PR-01 准入条件 |
 
-首版工具①优先**一次批量提交一轮中明确的多个字段**。PR-02 的 ReAct 如果确有同轮多次不同写入，必须串行读取最新状态并分别提交；不得简单使用一个 `request_id` 当作“只允许整轮写一次”的开关。尚未实现操作级幂等时，不自动重放可能已成功的写入；重复值由保存层按无变化处理，无法确认结果时报告当前状态而不是盲目再执行。
+当前工具①对候选字段独立校验，合法独立字段在一次内容 revision 中提交，失败项分别返回；耦合的 d/D 几何按最终组合检查，不能保存相互冲突的尺寸。优先**一次批量提交一轮中明确的多个字段**。PR-02 的 ReAct 如果确有同轮多次不同写入，必须串行读取最新状态并分别提交；不得简单使用一个 `request_id` 当作“只允许整轮写一次”的开关。尚未实现操作级幂等时，不自动重放可能已成功的写入；重复值由保存层按无变化处理，无法确认结果时报告当前状态而不是盲目再执行。
 
 `brief_revision` 是**内容版本**而非数据库事务计数：`set/replace/accept_proposal` 引起实际 DesignBrief 变化才递增；PR-05 的 `accept_brief` 仅记录当前 `revision/summary_id` 对应的接受，不递增内容版本。提案、日志、摘要不影响 Brief revision。
 
-初期的保存仅需 SQLite 单进程短事务/原子批量写入；同一会话串行、工具失败给出可解释结果并结束本轮。**不实现分布式锁、跨节点 exactly-once、事务补偿、断点恢复平台或复杂乐观并发框架**。未来真正出现多端同时写入或自动重试场景，再按实测需要加固。 
+初期的保存仅需 SQLite 单进程短事务/原子批量写入；同一会话串行、工具失败给出可解释结果并结束本轮。**不实现分布式锁、跨节点 exactly-once、事务补偿、断点恢复平台或复杂乐观并发框架**。未来真正出现多端同时写入或自动重试场景，再按实测需要加固。
 
 ### 3.2 防漏提取与回复一致性
 
@@ -169,7 +171,7 @@ Conversation Agent（LLM）
 
 ### 4.2 工具② `get_design_status`（简单只读）
 
-**工具②只报告客观缺项，不负责提问策略、优先级打分、责任归属、推荐下一动作。** 使用同一份 [字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) 中 R/C/O/OPT 定义计算状态。工具①有效写入后应将最新状态作为结果的一部分，避免重复查询。
+**工具②只报告客观缺项，不负责提问策略、优先级打分、责任归属、推荐下一动作。** 使用同一份 [字段合同](DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md) 中 R/C/O/OPT 定义计算状态。工具①有效写入后应将最新状态作为结果的一部分，避免重复查询。
 
 ```json
 {
@@ -193,7 +195,7 @@ Conversation Agent（LLM）
 
 ### 4.3 工具③ `lookup_engineering_knowledge`（只读知识）
 
-建议输入 `{ "topic": "clearance | fit | bearing_model | material | lubrication | terminology", "query": "...", "context_revision": 8 }`。返回 `summary`、`facts[]`、`source_refs[]`、`applicability`、`limitations`、`evidence_level`，无结果明确 `NOT_FOUND/UNVERIFIED`。
+当前接口为 `lookup_engineering_knowledge(query, catalog_query=None)`。概念查询可返回 `RELATED_EVIDENCE`，无相关证据返回 `NOT_FOUND`；精确目录仅查询 material/lubricant/bearing_model，缺目录时返回 `CATALOG_UNAVAILABLE`。结果包含事实、来源、限制及数据状态。游隙、配合和保持架类型只读解释，不进入参数写入或推荐。详见 PR-03 混合检索说明。
 
 知识来源按证据强度分层：
 1. **模型内在知识**：理解用户问题、解释公认的通用概念、组织语言，不作为未经核验的具体材料物性/公差/标准数值来源；
@@ -202,11 +204,11 @@ Conversation Agent（LLM）
 
 V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问“CN 与 C3 的含义”可以根据已知知识先解释；问“本尺寸游隙具体数值范围”必须查可追溯依据。没有证据时直接告知，不填造数字。
 
-### 4.4 工具④ `recommend_engineering_config`（筛选、建立提案）
+### 4.4 工具④ `recommend_engineering_config`（后续规划：筛选、建立提案）
 
 建议输入：
 ```json
-{"config_type":"materials_and_cage | lubrication | clearance_and_fits","observed_revision":8}
+{"config_type":"materials_and_cage_material | lubrication","observed_revision":8}
 ```
 
 模型只选择推荐类型，**不能自填工况数值**。工具从指定版本的受信 DesignBrief 读取尺寸、转速、载荷、温度等条件，先判断是否具备必要前置数据，再通过内部共用的 KnowledgeRepository 和审核规则筛选有限候选。
@@ -232,16 +234,16 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
 
 若不足条件返回 `NEED_INPUT`（列出缺少的推荐必要条件）；找不到可审核配置返回 `NO_VERIFIED_CONFIGURATION`，不可由 LLM 临时补造工程数字。推荐不自动写 DesignBrief confirmed 字段，模型需向用户展示候选及来源、说明适用限制，再等待接受。**推荐适用性与 RoBAS 求解模型兼容性不是同一个判定**：暂不实现独立 `check_solver_compatibility`，未验证的模型条件保持 UNKNOWN，不宣称可运行。
 
-### 4.5 工具⑤ `finalize_design_brief`（最终检查、摘要预览与导出）
+### 4.5 工具⑤ `finalize_design_brief`（后续规划：最终检查、摘要预览与导出）
 
 建议输入：
 ```json
 {"mode":"check | export","expected_revision":12}
 ```
 
-**`check`**：根据 [字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) 计算用户层需求完整性，返回 `brief_complete`、`missing`、`unconfirmed`、`conflicts`、`brief_user_accepted`，并生成可展示的规范化 `review_summary`、`summary_id` 与绑定内容哈希/版本。**生成摘要不等于用户已经看过**；只有在用户实际收到该版本摘要的可核验展示记录后，才能接受它。
+**`check`**：根据 [字段合同](DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md) 计算用户层需求完整性，返回 `brief_complete`、`missing`、`unconfirmed`、`conflicts`、`brief_user_accepted`，并生成可展示的规范化 `review_summary`、`summary_id` 与绑定内容哈希/版本。**生成摘要不等于用户已经看过**；只有在用户实际收到该版本摘要的可核验展示记录后，才能接受它。
 
-**`export`**：校验当前期望版本和实际快照后，输出带明确状态的 DGBDesignBrief/v1（含来源、五优化槽及未决项）。缺项时只可导出 `DRAFT/INCOMPLETE`；用户层完整时可导出 `COMPLETE_UNCONFIRMED`，若业务要求正式确认交付则还必须经工具① `accept_brief` 取得 `brief_user_accepted=true` 才标 `CONFIRMED_COMPLETE`。导出不代替确认，也不在无用户要求时每轮自动生成文件。
+**`export`**：校验当前期望版本和实际快照后，输出带明确状态的 DGBDesignBrief/v2（含来源、五优化槽及未决项）。缺项时只可导出 `DRAFT/INCOMPLETE`；用户层完整时可导出 `COMPLETE_UNCONFIRMED`，若业务要求正式确认交付则还必须经工具① `accept_brief` 取得 `brief_user_accepted=true` 才标 `CONFIRMED_COMPLETE`。导出不代替确认，也不在无用户要求时每轮自动生成文件。
 
 检查输出示例：
 ```json
@@ -287,7 +289,7 @@ V1 不建大规模 RAG；结构化数据 + 少量审核规则优先。用户问�
 
 ## 6. DesignBrief 与状态管理
 
-**仅一套用户层事实来源**：`DesignBrief` 按 [DGBDesignBrief/v1 字段合同](DGB_DESIGN_BRIEF_V1_FIELD_CONTRACT.md) 保存 `bearing`、`dimensions`、`operating`、`engineering`、`requirements`、`optimization_slots` 和只读内部 `solver_context`。不要用对话历史或模型上下文代替受信参数存储。
+**仅一套用户层事实来源**：`DesignBrief` 按 [DGBDesignBrief/v2 字段合同](DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md) 保存 `bearing`、`dimensions`、`operating`、`engineering`、`requirements`、`optimization_slots` 和只读内部 `solver_context`。不要用对话历史或模型上下文代替受信参数存储。
 
 典型 `ParameterValue`：
 
@@ -394,7 +396,7 @@ PR-01～02 可以不依赖 RoBAS EXE 的工程冻结完成；PR-03/04 的具体�
 - 模型不用工具即可解释一般术语、具体表值必须查询；
 - 推荐前置条件缺失→模型自主追问；无可靠审核规则→不编造；
 - 用户接受整套/部分提案；重设转速后旧提案不能冒充有效；
-- 工具①唯一写入、原子批量更新和真实修订号；PR-02/04 同轮多次操作串行且不盲目重放；用户确认不可伪造；
+- 工具①唯一写入、合法子集的原子提交、耦合几何一致性和真实修订号；PR-02/04 同轮多次操作串行且不盲目重放；用户确认不可伪造；
 - PR-02 任意时刻展示当前 Brief 草案；PR-05 通过工具⑤导出带缺项的 draft 或正式交付；完整 Brief 不等于 RoBAS DATA ready；
 - 调用预算耗尽、工具报错、重复调用时可解释地停止。
 
@@ -404,4 +406,4 @@ PR-01～02 可以不依赖 RoBAS EXE 的工程冻结完成；PR-03/04 的具体�
 
 每 PR 交付：改动文件与真实功能、关键数据流/工具时序、代表性用户对话、测试层级（mock/真实 LLM/真实 RoBAS 分别说明）、目前未实现的部分、是否有冗余抽象、下一 PR 前置条件。状态只按 NOT_STARTED/IN_PROGRESS/IMPLEMENTED/TESTED/ACCEPTED 管理，不将写完文档等同于功能完成。
 
-**现在的实际状态**：仅完成设计规范和 PR-00 历史审计；Agent/优化/RoBAS 适配业务代码均未实现。PR #2 仍待用户验收，本文提交不代表批准合并或启动 PR-01。
+**现在的实际状态（2026-11-25）**：参数状态底座和三工具对话已实现；当前分支具有只读知识查询、轻量提案/采纳及独立参数更新。用户层采用 DesignBrief/v2，共14个必需字段；保持架类型、游隙、配合已删除，旧会话不迁移不兼容。独立工具④、工具⑤及完整 RoBAS 适配未实现；真实模型与工程验收需各自给出证据，不由单元测试代替。

@@ -59,7 +59,6 @@ class Materials(StrictModel):
 
 
 class Cage(StrictModel):
-    type: ParameterValue | None = None
     material_id: ParameterValue | None = None
 
 

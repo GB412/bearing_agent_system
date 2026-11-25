@@ -52,7 +52,6 @@ LABELS = {
     "engineering.materials.inner_ring_id": "内圈材料",
     "engineering.materials.outer_ring_id": "外圈材料",
     "engineering.materials.ball_id": "钢球材料",
-    "engineering.cage.type": "保持架类型",
     "engineering.cage.material_id": "保持架材料",
     "engineering.lubrication.mode": "润滑方式",
     "engineering.lubrication.lubricant_id": "润滑剂",

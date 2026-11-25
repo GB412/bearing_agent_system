@@ -36,6 +36,7 @@ def propose_lubrication(turn):
 
 
 @pytest.mark.parametrize("path,value,message", [
+    ("engineering.cage.type", "stamping", "保持架类型采用stamping"),
     ("engineering.clearance.group", "CN", "游隙组别CN"),
     ("engineering.clearance.initial_radial_clearance_mm", 0.01, "游隙0.01mm"),
     ("engineering.fits.inner_ring", "k6", "内圈配合k6"),
@@ -144,6 +145,7 @@ def test_proposal_cannot_save_deleted_fields_or_numerical_design(environment):
     for bad in [
         {"path": "dimensions.d_mm", "value": "25"},
         {"path": "optimization_slots.Z", "value": "12"},
+        {"path": "engineering.cage.type", "value": "stamping"},
         {"path": "engineering.clearance.group", "value": "CN"},
         {"path": "engineering.fits.inner_ring", "value": "k6"},
         {"path": "engineering.fits.outer_ring", "value": "H7"},

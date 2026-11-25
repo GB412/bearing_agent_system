@@ -47,7 +47,6 @@ FIELDS: dict[str, FieldSpec] = {
     "engineering.materials.inner_ring_id": FieldSpec("string", required=True),
     "engineering.materials.outer_ring_id": FieldSpec("string", required=True),
     "engineering.materials.ball_id": FieldSpec("string", required=True),
-    "engineering.cage.type": FieldSpec("string", required=True),
     "engineering.cage.material_id": FieldSpec("string", required=True),
     "engineering.lubrication.mode": FieldSpec("enum", choices=("oil", "grease", "other"), required=True),
     "engineering.lubrication.lubricant_id": FieldSpec("string", required=True),
