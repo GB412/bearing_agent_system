@@ -11,8 +11,8 @@ import pytest
 
 from bearing_agent_system.models import (
     DesignBrief,
-    ParameterValue,
     OptimizationSlot,
+    ParameterValue,
     Source,
 )
 from bearing_agent_system.robas_dgb_input import (
