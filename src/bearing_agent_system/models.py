@@ -59,7 +59,6 @@ class Materials(StrictModel):
 
 
 class Cage(StrictModel):
-    type: ParameterValue | None = None
     material_id: ParameterValue | None = None
 
 
@@ -68,22 +67,10 @@ class Lubrication(StrictModel):
     lubricant_id: ParameterValue | None = None
 
 
-class Clearance(StrictModel):
-    group: ParameterValue | None = None
-    initial_radial_clearance_mm: ParameterValue | None = None
-
-
-class Fits(StrictModel):
-    inner_ring: ParameterValue | None = None
-    outer_ring: ParameterValue | None = None
-
-
 class Engineering(StrictModel):
     materials: Materials = Field(default_factory=Materials)
     cage: Cage = Field(default_factory=Cage)
     lubrication: Lubrication = Field(default_factory=Lubrication)
-    clearance: Clearance = Field(default_factory=Clearance)
-    fits: Fits = Field(default_factory=Fits)
 
 
 class Requirement(StrictModel):
@@ -161,7 +148,7 @@ class SolverContext(StrictModel):
 
 
 class DesignBrief(StrictModel):
-    schema_version: Literal["DGBDesignBrief/v1"] = "DGBDesignBrief/v1"
+    schema_version: Literal["DGBDesignBrief/v2"] = "DGBDesignBrief/v2"
     bearing: Bearing = Field(default_factory=Bearing)
     dimensions: Dimensions = Field(default_factory=Dimensions)
     operating: Operating = Field(default_factory=Operating)
@@ -187,9 +174,21 @@ class UpdateBatch(StrictModel):
 
     @model_validator(mode="after")
     def unique_paths(self) -> UpdateBatch:
-        paths = [c.path for c in self.changes]
-        if len(paths) != len(set(paths)):
-            raise ValueError("Duplicate paths in one update batch")
+        # Requirement lists can receive multiple distinct items in one turn.
+        # Scalar paths remain unique; replacements need distinct target IDs.
+        lists = {
+            "requirements.constraints[]",
+            "requirements.preferences[]",
+            "requirements.geometric_bounds[]",
+        }
+        seen: set[tuple[str, str | None]] = set()
+        for change in self.changes:
+            if self.operation == "set" and change.path in lists:
+                continue
+            key = (change.path, change.target_id if change.path in lists else None)
+            if key in seen:
+                raise ValueError("Duplicate paths in one update batch")
+            seen.add(key)
         return self
 
 

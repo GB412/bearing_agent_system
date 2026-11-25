@@ -1,5 +1,7 @@
 # DGBDesignBrief/v1：用户层字段合同（PR-01 实施基线）
 
+> **历史版本，已被 [DesignBrief/v2 当前合同](DGB_DESIGN_BRIEF_V2_FIELD_CONTRACT.md) 替代。** v1 中的游隙、配合字段已不在代码中。无需旧会话兼容或迁移。
+
 > 版本：v1.0（2026-11-22）；**合同设计，不是已实现的数据模型**。与 [Conversation Agent V1 主架构](CONVERSATION_AGENT_V1_ARCHITECTURE.md) 和 [验收矩阵](CONVERSATION_AGENT_V1_ACCEPTANCE.md) 配套。  
 > 只约束第一版单列深沟球轴承（DGB）、单一稳态设计工况。字段名是**建议冻结的用户层键**，RoBAS DATA 43/324 底层映射另见 [PR-00 审计](../pr00/PR-00_ROBAS_QUASI_STATIC_INPUT_AUDIT.md)。不要将两份字段目录混成一个。
 

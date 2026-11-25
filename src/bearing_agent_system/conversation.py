@@ -15,6 +15,7 @@ from .agent_prompt import build_system_prompt
 from .agent_tools import TurnTools
 from .brief_service import DesignBriefService
 from .conversation_store import ConversationStore
+from .knowledge import KnowledgeRepository
 from .reply_guard import needs_write_repair, verified_reply
 
 
@@ -74,6 +75,9 @@ class ConversationAgent:
         self.max_tool_calls = max_tool_calls
         self.history_turns = history_turns
         self.agent_factory = agent_factory
+        # Share the read-only knowledge backend (and cached vector index)
+        # across turns; do not reload an embedding model every user message.
+        self.knowledge = KnowledgeRepository()
         # PR-02 is deliberately single-process / serial, with no distributed locks.
         self._lock = threading.RLock()
 
@@ -85,6 +89,7 @@ class ConversationAgent:
             "schema_version": brief.schema_version,
             "brief": brief.model_dump(mode="json"),
             "design_status": status.model_dump(mode="json"),
+            "pending_recommendation": self.service.store.pending_recommendation(session_id),
             "deliverable_status": "DRAFT_ONLY",
             "robas_template_ready": "NOT_ASSESSED",
         }
@@ -113,6 +118,7 @@ class ConversationAgent:
                 )
             _, revision = self.service.get_brief(session_id)
             status = self.service.get_design_status(session_id).model_dump(mode="json")
+            pending = self.service.store.pending_recommendation(session_id)
             previous_messages = self.history.history(session_id, self.history_turns)
             self.history.begin_turn(session_id, user_turn_id, user_message)
 
@@ -120,12 +126,13 @@ class ConversationAgent:
                 service=self.service, session_id=session_id,
                 message_id=user_turn_id, user_message=user_message,
                 max_calls=self.max_tool_calls,
+                knowledge=self.knowledge,
             )
             started = time.perf_counter()
             try:
                 agent = self.agent_factory(
                     self.model, turn_tools.tools(),
-                    system_prompt=build_system_prompt(status, revision),
+                    system_prompt=build_system_prompt(status, revision, pending),
                 )
                 messages = previous_messages + [{"role": "user", "content": user_message}]
                 # LangGraph recursion cap also limits model/tool cycles.

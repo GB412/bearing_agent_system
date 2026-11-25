@@ -1,0 +1,16 @@
+pydantic<3,>=2.7
+
+[agent]
+langchain<2,>=1.0
+langchain-openai<2,>=1.0
+openai<3,>=2.0
+
+[dev]
+pytest>=8
+ruff>=0.6
+langchain<2,>=1.0
+langchain-openai<2,>=1.0
+openai<3,>=2.0
+
+[semantic]
+sentence-transformers<6,>=3

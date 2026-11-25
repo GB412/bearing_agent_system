@@ -1,0 +1,350 @@
+{
+  "schema_version": "EngineeringKnowledge/v1",
+  "records": [
+    {
+      "id": "skf-6206-dimensions",
+      "topic": "bearing_model",
+      "match_terms": [
+        "6206"
+      ],
+      "summary": "SKF 6206 开式单列深沟球轴承的主要外形尺寸为内径 30 mm、外径 62 mm、宽度 16 mm。",
+      "facts": [
+        {
+          "field": "dimensions.d_mm",
+          "value": 30,
+          "unit": "mm"
+        },
+        {
+          "field": "dimensions.D_mm",
+          "value": 62,
+          "unit": "mm"
+        },
+        {
+          "field": "dimensions.B_mm",
+          "value": 16,
+          "unit": "mm"
+        }
+      ],
+      "applicability": "仅适用于所引 SKF 6206 产品主尺寸，其他变体需另查产品页。",
+      "limitations": [
+        "不是内部几何或材料清单",
+        "不能用外形尺寸判断额定寿命、实际游隙或适用转速"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "SKF",
+        "title": "6206 - Deep groove ball bearings",
+        "url": "https://www.skf.com/si/products/rolling-bearings/ball-bearings/deep-groove-ball-bearings/productid-6206",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_product_page"
+      },
+      "title": "SKF 6206 开式单列深沟球轴承的主要外形尺寸为内径 30 ",
+      "content": "SKF 6206 开式单列深沟球轴承的主要外形尺寸为内径 30 mm、外径 62 mm、宽度 16 mm。"
+    },
+    {
+      "id": "ntn-clearance-classes",
+      "topic": "clearance",
+      "match_terms": [
+        "cn",
+        "c3",
+        "游隙",
+        "clearance"
+      ],
+      "summary": "CN（Normal）表示普通径向内部游隙等级；C3 表示比普通等级更大的径向内部游隙等级。等级名称本身不决定某个轴承的具体游隙数值。",
+      "facts": [
+        {
+          "field": "clearance.normal_group",
+          "value": "CN",
+          "unit": null
+        },
+        {
+          "field": "clearance.greater_than_normal_group",
+          "value": "C3",
+          "unit": null
+        }
+      ],
+      "applicability": "仅解释深沟球轴承径向游隙等级的一般含义，不对具体产品自动推荐CN或C3。",
+      "limitations": [
+        "未提供6206在CN/C3等级下的数值游隙区间",
+        "未计算装配后工作游隙；需结合配合、温差和产品资料"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NTN Americas",
+        "title": "Frequently Asked Questions - What is C3 clearance?",
+        "url": "https://ntnamericas.com/technical-resources/faqs/",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_technical_faq"
+      },
+      "title": "CN（Normal）表示普通径向内部游隙等级；C3 表示比普通等",
+      "content": "CN（Normal）表示普通径向内部游隙等级；C3 表示比普通等级更大的径向内部游隙等级。等级名称本身不决定某个轴承的具体游隙数值。"
+    },
+    {
+      "id": "ntn-shaft-housing-fit-principles",
+      "topic": "fit",
+      "match_terms": [
+        "配合",
+        "轴承座配合",
+        "bearing fit"
+      ],
+      "summary": "配合可分为间隙、过渡和过盈等形式；旋转套圈通常需要防止相对配合面的蠕动，但配合选择仍取决于载荷、温度、轴承与轴座材料。",
+      "facts": [
+        {
+          "field": "fit.factors",
+          "value": "载荷、温度、轴承类型、轴与座材料及旋转套圈",
+          "unit": null
+        }
+      ],
+      "applicability": "仅提供电机轴承轴/座配合的原则性解释；不能用来直接批准特定k6/H7公差组合。",
+      "limitations": [
+        "没有具体k6或H7的尺寸公差表",
+        "需要验证套圈旋转/受力方式、温升和配合尺寸后才能确定"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NTN Americas",
+        "title": "Bearing with Shaft & Housing Fits",
+        "url": "https://ntnamericas.com/technical-resources/shaft-housing-fits/",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "title": "配合可分为间隙、过渡和过盈等形式；旋转套圈通常需要防止相对配合面",
+      "content": "配合可分为间隙、过渡和过盈等形式；旋转套圈通常需要防止相对配合面的蠕动，但配合选择仍取决于载荷、温度、轴承与轴座材料。"
+    },
+    {
+      "id": "skf-grease-general-property",
+      "topic": "lubrication",
+      "match_terms": [
+        "脂润滑",
+        "润滑脂",
+        "grease"
+      ],
+      "summary": "与油相比，润滑脂通常更容易保持在轴承布置内部，因此相关密封与供脂装置可更简单；这不是特定工况下的自动选脂结论。",
+      "facts": [
+        {
+          "field": "lubrication.grease_general_property",
+          "value": "相较油润滑，润滑脂更容易留存在轴承布置内",
+          "unit": null
+        }
+      ],
+      "applicability": "润滑方式的通用差异说明；所引SKF页面讨论精密轴承，不直接推导普通工业电机的最佳方案。",
+      "limitations": [
+        "无推荐黏度、润滑脂牌号、补脂周期或转速极限",
+        "无法据此认定PA66兼容性或RoBAS润滑模型输入完整"
+      ],
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "SKF",
+        "title": "Selecting a suitable grease",
+        "url": "https://www.skf.com/il/products/super-precision-bearings/principles/bearing-selection-process/lubrication/suitable-grease",
+        "checked_on": "2026-11-23",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "title": "与油相比，润滑脂通常更容易保持在轴承布置内部，因此相关密封与供脂",
+      "content": "与油相比，润滑脂通常更容易保持在轴承布置内部，因此相关密封与供脂装置可更简单；这不是特定工况下的自动选脂结论。"
+    },
+    {
+      "id": "ntn-clearance-work-vs-initial",
+      "topic": "clearance",
+      "match_terms": [
+        "初始游隙与工作游隙"
+      ],
+      "title": "初始游隙与工作游隙",
+      "summary": "轴承初始内部游隙不等于装配和运行状态下的工作游隙。",
+      "content": "配合与运行温度变化会影响轴承内部游隙；分析应考虑内外圈受力和温差，而不是只根据转速判断CN或C3。",
+      "facts": [
+        {
+          "field": "concept",
+          "value": "轴承初始内部游隙不等于装配和运行状态下的工作游隙。",
+          "unit": null
+        }
+      ],
+      "applicability": "滚动轴承游隙选取的影响因素",
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NSK",
+        "title": "Bearing technical guidance",
+        "url": "https://www.nsk.com/tools-resources/abc-bearings/fits-and-internal-clearance/",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "limitations": [
+        "不提供某型号数值区间",
+        "不能确定当前工况必须选哪一等级"
+      ]
+    },
+    {
+      "id": "ntn-clearance-c2-c3",
+      "topic": "clearance",
+      "match_terms": [
+        "游隙等级与C2、CN、C3的比较"
+      ],
+      "title": "游隙等级与C2、CN、C3的比较",
+      "summary": "C2通常表示小于普通径向内部游隙，C3大于普通径向内部游隙。",
+      "content": "游隙代号描述等级而不是具体的装配后间隙。选择前应核对厂家、型号和游隙定义。",
+      "facts": [
+        {
+          "field": "concept",
+          "value": "C2通常表示小于普通径向内部游隙，C3大于普通径向内部游隙。",
+          "unit": null
+        }
+      ],
+      "applicability": "通用游隙等级概念",
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NTN Americas",
+        "title": "Bearing technical guidance",
+        "url": "https://ntnamericas.com/technical-resources/faqs/",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "limitations": [
+        "不能推导游隙的微米数值",
+        "C0静载荷符号不得与游隙等级混淆"
+      ]
+    },
+    {
+      "id": "ntn-ring-fit-and-creep",
+      "topic": "fit",
+      "match_terms": [
+        "旋转套圈与配合面蠕动"
+      ],
+      "title": "旋转套圈与配合面蠕动",
+      "summary": "套圈与轴或座之间的不适当配合可能引起相对滑移（蠕动）。",
+      "content": "内外圈相对负载方向的转动状态、载荷大小、轴和座材料、温度与安装方式共同影响配合选择。",
+      "facts": [
+        {
+          "field": "concept",
+          "value": "套圈与轴或座之间的不适当配合可能引起相对滑移（蠕动）。",
+          "unit": null
+        }
+      ],
+      "applicability": "滚动轴承安装配合原理",
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NTN Americas",
+        "title": "Bearing technical guidance",
+        "url": "https://ntnamericas.com/technical-resources/shaft-housing-fits/",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "limitations": [
+        "不提供具体k6/H7尺寸公差",
+        "不能据此证明任何具体配合可靠"
+      ]
+    },
+    {
+      "id": "nsk-fit-affects-clearance",
+      "topic": "fit",
+      "match_terms": [
+        "过盈配合与工作游隙变化"
+      ],
+      "title": "过盈配合与工作游隙变化",
+      "summary": "过盈配合可能改变安装后的轴承内部游隙。",
+      "content": "配合会影响套圈尺寸及装配后的内部游隙，因此选择游隙等级时应共同考虑轴和轴承座配合。",
+      "facts": [
+        {
+          "field": "concept",
+          "value": "过盈配合可能改变安装后的轴承内部游隙。",
+          "unit": null
+        }
+      ],
+      "applicability": "滚动轴承配合及游隙分析",
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "NSK",
+        "title": "Bearing technical guidance",
+        "url": "https://www.nsk.com/tools-resources/abc-bearings/fits-and-internal-clearance/",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "limitations": [
+        "未提供定量计算公式",
+        "不能推导具体过盈量"
+      ]
+    },
+    {
+      "id": "skf-cage-selection-factors",
+      "topic": "cage",
+      "match_terms": [
+        "保持架选择的影响因素"
+      ],
+      "title": "保持架选择的影响因素",
+      "summary": "保持架结构和材料的选择需要考虑轴承运行工况及润滑条件。",
+      "content": "保持架选型需要考虑转速、工作温度、载荷、润滑、材料特性及轴承结构，不能仅凭一个转速值直接确定。",
+      "facts": [
+        {
+          "field": "concept",
+          "value": "保持架结构和材料的选择需要考虑轴承运行工况及润滑条件。",
+          "unit": null
+        }
+      ],
+      "applicability": "滚动轴承保持架选择原理",
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "SKF",
+        "title": "Bearing technical guidance",
+        "url": "https://www.skf.com/mena/products/rolling-bearings/principles-of-rolling-bearing-selection/bearing-selection-process/bearing-execution/cages",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "limitations": [
+        "不含RoBAS保持架材料目录",
+        "不能直接认定某材料适用温度或转速"
+      ]
+    },
+    {
+      "id": "skf-material-components",
+      "topic": "material",
+      "match_terms": [
+        "套圈与滚动体材料的考虑因素"
+      ],
+      "title": "套圈与滚动体材料的考虑因素",
+      "summary": "轴承套圈和滚动体材料应结合工况及材料特性选择。",
+      "content": "轴承零件包括套圈、滚动体和保持架，性能需求影响材料选择；材料数据库中的物性记录不等同工程选材结论。",
+      "facts": [
+        {
+          "field": "concept",
+          "value": "轴承套圈和滚动体材料应结合工况及材料特性选择。",
+          "unit": null
+        }
+      ],
+      "applicability": "滚动轴承材料基础知识",
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "SKF",
+        "title": "Bearing technical guidance",
+        "url": "https://www.skf.com/se/products/rolling-bearings/principles-of-rolling-bearing-selection/general-bearing-knowledge/bearing-basics/components-and-materials",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "limitations": [
+        "不提供特定工况最优材料",
+        "不说明RoBAS材料数据库具体支持项"
+      ]
+    },
+    {
+      "id": "skf-lubrication-choice",
+      "topic": "lubrication",
+      "match_terms": [
+        "润滑脂与润滑方式选择"
+      ],
+      "title": "润滑脂与润滑方式选择",
+      "summary": "轴承润滑剂选择应结合速度、温度和运行环境。",
+      "content": "润滑脂选择需要结合轴承运行环境及温度；润滑脂特性的一般知识不能代替当前转速和散热条件下的计算。",
+      "facts": [
+        {
+          "field": "concept",
+          "value": "轴承润滑剂选择应结合速度、温度和运行环境。",
+          "unit": null
+        }
+      ],
+      "applicability": "SKF润滑脂选择的一般考虑因素",
+      "review_status": "SOURCE_DOCUMENTED_NOT_ENGINEERING_REVIEWED",
+      "source": {
+        "publisher": "SKF",
+        "title": "Bearing technical guidance",
+        "url": "https://www.skf.com/il/products/super-precision-bearings/principles/bearing-selection-process/lubrication/suitable-grease",
+        "source_type": "manufacturer_technical_guide"
+      },
+      "limitations": [
+        "无具体油品牌号推荐",
+        "不能单靠润滑剂名称断言RoBAS计算就绪"
+      ]
+    }
+  ]
+}

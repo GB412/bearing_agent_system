@@ -76,15 +76,19 @@ def test_replace_missing_rejected(service):
     assert out.revision == 0 and out.rejected_changes
 
 
-def test_atomic_reject_invalid_mid_batch(service):
+def test_invalid_independent_field_does_not_rollback_valid_dimensions(service):
     out = update(service, [
         ch("dimensions.d_mm", 25, "内径25", "mm"),
         ch("dimensions.D_mm", 52, "外径52", "mm"),
         ch("engineering.magic_parameter", 1, "1"),
     ], "内径25 外径52 1")
-    assert out.revision == 0
+    assert out.revision == 1
+    assert out.applied_changes == ["dimensions.d_mm", "dimensions.D_mm"]
+    assert out.rejected_changes[0]["path"] == "engineering.magic_parameter"
     brief, revision = service.get_brief("s1")
-    assert revision == 0 and brief.dimensions.d_mm is None
+    assert revision == 1
+    assert brief.dimensions.d_mm.value == 25
+    assert brief.dimensions.D_mm.value == 52
 
 
 def test_atomic_reject_geometry_inconsistency(service):

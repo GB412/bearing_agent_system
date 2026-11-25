@@ -8,7 +8,7 @@ from bearing_agent_system.models import DesignBrief, OptimizationSlot, UpdateBat
 
 def test_empty_brief_has_five_unlocked_optimization_slots():
     brief = DesignBrief()
-    assert brief.schema_version == "DGBDesignBrief/v1"
+    assert brief.schema_version == "DGBDesignBrief/v2"
     assert brief.bearing.type == "DGB"
     for field in ("Dw_mm", "Z", "Dpw_mm", "fi", "fo"):
         slot = getattr(brief.optimization_slots, field)

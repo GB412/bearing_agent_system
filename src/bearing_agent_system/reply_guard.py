@@ -19,6 +19,20 @@ WRITE_CLAIM = re.compile(
     r"|(?:已|已经)(?:把|将).{0,12}(?:固定|锁定|设为|设成|改为)"
 )
 PAST_CONTEXT = ("此前", "以前", "之前", "上轮", "上次", "历史")
+NEGATED_WRITE = re.compile(
+    r"(?:没有|并未|尚未|未曾|未|没|不曾|从未|不)"
+    r"(?:把|将|实际|进行)?\s*"
+    r"(?:记录|保存|写入|录入|更新|修改|设置|登记)",
+    re.I,
+)
+
+
+def _positive_write_claim(text: str) -> bool:
+    """Conservatively ignore explicit denial of a claimed completed write."""
+    for phrase in re.split(r"[，,。；;\n]", text):
+        if WRITE_CLAIM.search(phrase) and not NEGATED_WRITE.search(phrase):
+            return True
+    return False
 STATUS_MARKER = "[[DESIGN_STATUS]]"
 # Only explicit model claims of confirmed status; not a user-intent classifier.
 CONFIRMED_LINE = re.compile(r"^\s*(?:\*\*)?已确认(?:\*\*)?(?:[：:]|.{0,12}(?:参数|工作温度))")
@@ -38,13 +52,9 @@ LABELS = {
     "engineering.materials.inner_ring_id": "内圈材料",
     "engineering.materials.outer_ring_id": "外圈材料",
     "engineering.materials.ball_id": "钢球材料",
-    "engineering.cage.type": "保持架类型",
     "engineering.cage.material_id": "保持架材料",
     "engineering.lubrication.mode": "润滑方式",
     "engineering.lubrication.lubricant_id": "润滑剂",
-    "engineering.fits.inner_ring": "内圈配合",
-    "engineering.fits.outer_ring": "外圈配合",
-    "engineering.clearance": "游隙",
 }
 VALUES = {"grease": "脂润滑", "oil": "油润滑", "other": "其他"}
 UNITS = {"degC": "℃"}
@@ -70,24 +80,33 @@ def reconcile_writes(trace: list[dict[str, Any]]) -> WriteOutcome:
     for entry in trace:
         if entry.get("name") != "update_design_brief":
             continue
+        # Mixed result: a single call can contain BOTH successfully committed
+        # fields and rejected fields. Never tell the user a saved field failed.
+        committed = entry.get("applied_changes", [])
+        for path in committed:
+            if path not in applied:
+                applied.append(path)
+            unresolved.pop(path, None)
         if entry.get("ok"):
-            for path in entry.get("applied_changes", []):
-                if path not in applied:
-                    applied.append(path)
-                unresolved.pop(path, None)
             continue
         rejected = {
             item.get("path"): item.get("reason", "未通过校验")
             for item in entry.get("rejected_changes", [])
             if item.get("path")
         }
-        paths = list(dict.fromkeys(
+        # Explicit path-level rejections are authoritative. The old
+        # all-or-nothing trace has only one rejected path and no applied edits;
+        # in that case other attempted paths were also rolled back. Keep the
+        # old reporting behavior only for that legacy receipt shape.
+        mixed = bool(committed)
+        paths = list(rejected) if mixed else list(dict.fromkeys(
             entry.get("attempted_paths", []) or list(rejected)
         ))
         if paths:
             for path in paths:
-                unresolved[path] = rejected.get(path, "同批更新未通过校验")
-        else:
+                if path not in committed:
+                    unresolved[path] = rejected.get(path, "同批更新未通过校验")
+        elif not committed:
             unknown.append(entry.get("error") or "未识别的工具更新错误")
     return WriteOutcome(tuple(applied), tuple(unresolved.items()), tuple(unknown))
 
@@ -102,7 +121,7 @@ def needs_write_repair(answer: str, trace: list[dict[str, Any]]) -> bool:
         return False
     if any(t.get("name") == "get_design_status" for t in trace):
         return False
-    return bool(WRITE_CLAIM.search(answer)) and not any(
+    return _positive_write_claim(answer) and not any(
         marker in answer for marker in PAST_CONTEXT
     )
 
@@ -162,7 +181,7 @@ def _free_text_without_new_write_claims(answer: str) -> str:
         for i in range(0, len(parts), 2):
             phrase = parts[i]
             delimiter = parts[i + 1] if i + 1 < len(parts) else ""
-            if WRITE_CLAIM.search(phrase) and not any(
+            if _positive_write_claim(phrase) and not any(
                 mark in phrase for mark in PAST_CONTEXT
             ):
                 continue
@@ -200,6 +219,20 @@ def verified_reply(
     if UNSUPPORTED_CLAIMS.search(answer):
         answer = "当前仅建立需求草案，尚未进行工程校核、RoBAS 验证或 CAD 生成。"
     natural = _free_text_without_new_write_claims(answer)
+    # The service already emits verified per-field receipts. Do not repeat
+    # model-authored failed-write or committed-write receipt lines below them.
+    if result.unresolved or result.applied:
+        natural = "\n".join(
+            line for line in natural.splitlines()
+            if not (
+                (result.unresolved and line.lstrip().removeprefix("**").startswith(
+                    ("本轮仍未保存：", "本轮仍未保存:")
+                ))
+                or (result.applied and line.lstrip().removeprefix("**").startswith(
+                    ("本轮实际已写入：", "本轮实际已写入:")
+                ))
+            )
+        ).strip()
     # Explicit structured status request from the model: render actual SQLite
     # status without inferring intent from the user's Chinese vocabulary.
     if STATUS_MARKER in natural:

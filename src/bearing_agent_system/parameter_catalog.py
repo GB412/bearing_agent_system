@@ -47,14 +47,9 @@ FIELDS: dict[str, FieldSpec] = {
     "engineering.materials.inner_ring_id": FieldSpec("string", required=True),
     "engineering.materials.outer_ring_id": FieldSpec("string", required=True),
     "engineering.materials.ball_id": FieldSpec("string", required=True),
-    "engineering.cage.type": FieldSpec("string", required=True),
     "engineering.cage.material_id": FieldSpec("string", required=True),
     "engineering.lubrication.mode": FieldSpec("enum", choices=("oil", "grease", "other"), required=True),
     "engineering.lubrication.lubricant_id": FieldSpec("string", required=True),
-    "engineering.clearance.group": FieldSpec("enum", choices=("C2", "CN", "C3", "C4", "C5")),
-    "engineering.clearance.initial_radial_clearance_mm": FieldSpec("number", "mm", nonnegative=True),
-    "engineering.fits.inner_ring": FieldSpec("string", required=True),
-    "engineering.fits.outer_ring": FieldSpec("string", required=True),
     "requirements.constraints[]": FieldSpec("requirement"),
     "requirements.preferences[]": FieldSpec("requirement"),
     "requirements.geometric_bounds[]": FieldSpec("requirement"),
@@ -68,18 +63,20 @@ FIELDS: dict[str, FieldSpec] = {
 # Allowed unit aliases. Do not guess missing units from user natural language.
 UNIT_FACTORS: dict[str, dict[str, float]] = {
     "mm": {"mm": 1.0, "cm": 10.0, "m": 1000.0, "um": 0.001, "µm": 0.001,
+           "μm": 0.001,
            "毫米": 1.0, "厘米": 10.0, "微米": 0.001},
     "N": {"N": 1.0, "kN": 1000.0},
     "rpm": {"rpm": 1.0, "rps": 60.0},
     "degC": {"degC": 1.0, "℃": 1.0, "°C": 1.0, "C": 1.0},
     "h": {"h": 1.0, "小时": 1.0, "hour": 1.0, "hours": 1.0},
     "W": {"W": 1.0, "kW": 1000.0},
+    "MPa": {"MPa": 1.0, "兆帕": 1.0},
 }
 
 NUMERIC_LITERAL = re.compile(r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?")
 NUMERIC_WITH_UNIT = re.compile(
     r"(?<![A-Za-z0-9])([-+]?\d+(?:\.\d+)?)\s*"
-    r"(hours|hour|小时|毫米|厘米|微米|degC|rpm|rps|kN|kW|mm|cm|µm|um|°C|℃|N|W|h|m|K)"
+    r"(hours|hour|小时|毫米|厘米|微米|兆帕|degC|rpm|rps|MPa|kN|kW|mm|cm|µm|μm|um|°C|℃|N|W|h|m|K)"
     r"(?![A-Za-z])"
 )
 
@@ -236,6 +233,9 @@ def _normalize_number(value: Any, unit: str | None, spec: FieldSpec) -> float:
 EXTRA_QUANTITIES = {
     "life_hours": FieldSpec("number", "h", nonnegative=True),
     "power_loss": FieldSpec("number", "W", nonnegative=True),
+    "min_film_thickness": FieldSpec("number", "mm", nonnegative=True),
+    "max_bearing_temperature_c": FieldSpec("number", "degC"),
+    "max_contact_stress": FieldSpec("number", "MPa", nonnegative=True),
 }
 SLOT_HINTS: dict[str, tuple[str, ...]] = {
     "Dw_mm": ("Dw", "dw", "球径", "钢球直径"),
@@ -287,11 +287,18 @@ def _make_requirement(change: UpdateChange, source: Source,
                 raise InvalidChange("Approximate quantity cannot create a hard requirement")
             value = _checked_quantity(raw_value, unit, spec, change.evidence_span)
             unit = spec.unit
-            observed_op = _nearby_operator(context.user_message, raw_value)
-            if observed_op is not None and observed_op != operator:
-                raise InvalidChange("Requirement comparator conflicts with user wording")
-            if change.path == "requirements.geometric_bounds[]" and observed_op is None:
-                raise InvalidChange("Geometric bound needs explicit comparison evidence")
+            # The LLM interprets whether a performance statement is a hard
+            # constraint or a softer goal, and which comparator it expresses.
+            # A short Chinese-keyword regex is not a reliable second semantic
+            # judge: it can reject valid paraphrases or silently miss others.
+            # Keep structural, numeric, unit and trusted evidence checks above.
+            # Geometry still has its separate strict boundary safeguard.
+            if change.path == "requirements.geometric_bounds[]":
+                observed_op = _nearby_operator(context.user_message, raw_value)
+                if observed_op is None:
+                    raise InvalidChange("Geometric bound needs explicit comparison evidence")
+                if observed_op != operator:
+                    raise InvalidChange("Geometric bound comparator conflicts with user wording")
         return Requirement(field=field, operator=operator, value=value, unit=unit, source=source)
     except (KeyError, TypeError, ValueError) as exc:
         raise InvalidChange(f"Invalid requirement: {exc}") from exc
@@ -360,6 +367,86 @@ def _make_slot(change: UpdateChange, source: Source,
         raise InvalidChange(str(exc)) from exc
 
 
+# Avoid treating a legal enum token emitted by the model as a user's selection.
+# This is deliberately narrow: for language not covered by these explicit
+# forms, the safe outcome is to request clarification, never to confirm.
+ENUM_EVIDENCE: dict[str, dict[str, tuple[str, ...]]] = {
+    "engineering.lubrication.mode": {
+        "grease": ("脂润滑", "润滑脂", "grease"),
+        "oil": ("油润滑", "润滑油", "oil"),
+        "other": ("其他润滑", "其他方式", "other"),
+    },
+}
+ENUM_QUESTION = re.compile(
+    r"区别|比较|介绍|了解|解释|什么是|是什么意思|如何|哪种|哪个|"
+    r"选什么|应该|能否|可否|是什么|[？?]", re.I
+)
+ENUM_UNDECIDED = re.compile(
+    r"还没确定|尚未确定|不确定|未决定|没决定|不知道|暂不确定|"
+    r"还没选|尚未选|暂时不选|仅了解|只想了解", re.I
+)
+ENUM_NEGATION = re.compile(
+    r"不(?:想|要|会|考虑|采用|使用|选|选择|确认|确定)|不用|未采用|没选|"
+    r"不要|排除|取消|撤销", re.I
+)
+ENUM_SELECTION = re.compile(
+    r"选(?:择|定)?|采用|使用|确认|确定|指定|锁定|就用|定为|设为|改为|"
+    r"取|[=:：]", re.I
+)
+
+
+def _validate_enum_user_choice(change: UpdateChange, context: TrustedContext) -> None:
+    """Guard explicit enum mismatches and ambiguous question/negation contexts.
+
+    This is not full Chinese NLU. Require a positive, unambiguous user
+    declaration; ambiguous expressions remain unconfirmed and must be clarified.
+    """
+    choices = ENUM_EVIDENCE.get(change.path)
+    if choices is None:
+        return
+    if change.precision != "exact":
+        raise InvalidChange("Uncertain choice needs user confirmation before saving")
+    evidence = change.evidence_span
+    expected = choices[change.value]
+    # The selected label must appear in the *actual* trusted user message AND
+    # in the model's quoted span; a model-generated enum token is not evidence.
+    def mentions(text: str, tokens: tuple[str, ...]) -> bool:
+        return any(
+            re.search(r"(?<![A-Za-z0-9])" + re.escape(token) + r"(?![A-Za-z0-9])",
+                      text, re.I)
+            for token in tokens
+        )
+
+    if not mentions(evidence, expected):
+        raise InvalidChange("Chosen enum value lacks matching user-worded evidence")
+    if ENUM_UNDECIDED.search(context.user_message) and not ENUM_SELECTION.search(evidence):
+        raise InvalidChange("Choice not confirmed: user explicitly remains undecided")
+    # A clipped evidence span cannot hide uncertainty or a question
+    # present in the complete trusted user turn.
+    if ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
+        context.user_message
+    ):
+        raise InvalidChange("A question about an option is not an explicit selection")
+    if ENUM_UNDECIDED.search(context.user_message) and ENUM_SELECTION.search(evidence):
+        # A distinct selection after an undecided clause is ambiguous; for the
+        # first version be conservative rather than infer scope or attachment.
+        raise InvalidChange("Unclear choice under explicit uncertainty; ask for confirmation")
+    if ENUM_NEGATION.search(context.user_message):
+        # Reject if the negated choice is the same requested value.
+        for token in expected:
+            negated = re.compile(
+                r"(?:不想|不要|不确认|不确定|不考虑|不采用|不使用|不选(?:择)?|不用|未采用|没选|"
+                r"排除|取消|撤销)\s*(?:采用|使用|选择|选|确认|确定)?\s*"
+                + re.escape(token), re.I
+            )
+            if negated.search(context.user_message):
+                raise InvalidChange("User explicitly rejected this choice")
+    if ENUM_QUESTION.search(context.user_message) and not ENUM_SELECTION.search(
+        evidence
+    ):
+        raise InvalidChange("Discussion of lubrication is not a selected mode")
+
+
 def normalize_change(change: UpdateChange, context: TrustedContext) -> ParameterValue | OptimizationSlot | Requirement:
     """Whitelist every edit, normalize units, attach source from server context."""
     spec = FIELDS.get(change.path)
@@ -394,6 +481,7 @@ def normalize_change(change: UpdateChange, context: TrustedContext) -> Parameter
     elif spec.kind == "enum":
         if not isinstance(change.value, str) or change.value not in spec.choices:
             raise InvalidChange(f"Must be one of {spec.choices}")
+        _validate_enum_user_choice(change, context)
         value = change.value
     else:
         raise InvalidChange("Unsupported field type")

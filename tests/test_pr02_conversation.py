@@ -53,9 +53,13 @@ def param(path: str, value: Any, evidence: str, unit: str | None = None) -> dict
 
 
 @pytest.fixture
-def environment(tmp_path):
+def environment(tmp_path, catalog_path):
+    from bearing_agent_system.catalog_choices import CatalogChoices
+
     db = tmp_path / "agent.sqlite3"
-    service = DesignBriefService(SQLiteDesignBriefStore(db))
+    service = DesignBriefService(SQLiteDesignBriefStore(
+        db, catalog_choices=CatalogChoices(catalog_path)
+    ))
     history = ConversationStore(db)
     return service, history
 
@@ -217,7 +221,7 @@ def test_tool_budget_and_repeat_guard(environment):
     service, _ = environment
     tools = TurnTools(service=service, session_id="s",
                       message_id="m", user_message="内径25mm", max_calls=2)
-    update, status = tools.tools()
+    update, status = tools.tools()[:2]  # PR-03 adds a third read-only tool.
     first = update.invoke({"operation": "set", "changes": [
         param("dimensions.d_mm", 25, "内径25mm", "mm")
     ]})
@@ -490,7 +494,7 @@ def test_cage_analysis_not_overwritten_by_summary_guard(environment):
     assert model.calls == 1
     assert result.tool_trace == []
     assert result.revision == 0
-    assert service.get_brief("s")[0].engineering.cage.type is None
+    assert "type" not in service.get_brief("s")[0].engineering.cage.model_dump()
 
 
 def test_oil_invalid_enum_then_success_is_not_reported_as_failure(environment):
@@ -520,7 +524,7 @@ def test_oil_invalid_enum_then_success_is_not_reported_as_failure(environment):
     assert service.get_brief("s")[0].engineering.lubrication.mode.value == "oil"
 
 
-def test_partial_batch_failed_then_partial_correction_reports_remaining(environment):
+def test_partial_batch_then_corrected_enum_keeps_both_valid_fields(environment):
     service, history = environment
     model = ScriptedChatModel(replies=[
         action("update_design_brief", {"operation": "set", "changes": [
@@ -530,21 +534,23 @@ def test_partial_batch_failed_then_partial_correction_reports_remaining(environm
         action("update_design_brief", {"operation": "set", "changes": [
             param("engineering.lubrication.mode", "oil", "油润滑")
         ]}, "oil-only"),
-        AIMessage(content="关于钢球材料仍需要澄清，但润滑油类型可以后续确定。"),
+        AIMessage(content="已确认用户选择油润滑，润滑剂牌号还未确定。"),
     ])
     result = ConversationAgent(service, history, model).respond(
         "s", "油润滑；钢球采用GCr15", turn_id="partial-repair"
     )
-    assert result.revision == 1
-    assert "本轮实际已写入：润滑方式=油润滑" in result.answer
-    assert "本轮仍未保存：钢球材料" in result.answer
-    # A failed write still reports trusted receipts, while preserving
-    # independent guidance that does not claim the field was saved.
-    assert "关于钢球材料仍需要澄清" in result.answer
-    assert service.get_brief("s")[0].engineering.materials.ball_id is None
-    assert reconcile_writes(result.tool_trace).unresolved[0][0] == (
-        "engineering.materials.ball_id"
+    assert result.revision == 2
+    assert "钢球材料=material:GCr15" in result.answer
+    assert "润滑方式=油润滑" in result.answer
+    assert "本轮仍未保存" not in result.answer
+    assert result.tool_trace[0]["applied_changes"] == ["engineering.materials.ball_id"]
+    assert result.tool_trace[0]["rejected_changes"][0]["path"] == (
+        "engineering.lubrication.mode"
     )
+    assert result.tool_trace[1]["applied_changes"] == ["engineering.lubrication.mode"]
+    assert service.get_brief("s")[0].engineering.materials.ball_id.value == "material:GCr15"
+    assert service.get_brief("s")[0].engineering.lubrication.mode.value == "oil"
+    assert not reconcile_writes(result.tool_trace).unresolved
 
 
 def test_success_then_later_rejection_is_not_hidden(environment):
@@ -660,13 +666,15 @@ def test_write_tool_description_lists_exact_paths_and_examples(environment):
     service, _ = environment
     write_tool = TurnTools(
         service=service, session_id="s", message_id="m",
-        user_message="游隙选CN",
+        user_message="润滑方式选脂润滑",
     ).tools()[0]
     description = write_tool.description
     assert all(path in description for path in FIELDS)
     assert '"path":"requirements.geometric_bounds[]"' in description
     assert '"field":"life_hours","operator":">="' in description
-    assert '"path":"engineering.clearance.group","value":"CN"' in description
+    assert "engineering.clearance" not in description
+    assert "engineering.fits" not in description
+    assert '"path":"engineering.lubrication.mode"' in description
 
 
 def test_failed_write_keeps_independent_engineering_answer(environment):

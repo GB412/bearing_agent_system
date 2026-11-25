@@ -269,7 +269,7 @@ def test_requirement_two_sided_bounds_have_distinct_ids(service):
     assert len(set(ids)) == 2
 
 
-def test_atomic_rollback_if_replacement_batch_has_wrong_unit(service):
+def test_valid_requirement_replacement_survives_unrelated_wrong_unit(service):
     send(service, "外径不超过52mm", [
         item("requirements.geometric_bounds[]", geom(52), "外径不超过52mm")
     ])
@@ -280,10 +280,12 @@ def test_atomic_rollback_if_replacement_batch_has_wrong_unit(service):
         item("optimization_slots.Dw_mm", {"mode": "locked", "value": 0.8},
              "球径为0.8cm", "mm"),
     ], operation="replace")
-    assert result.rejected_changes
+    assert result.applied_changes == ["requirements.geometric_bounds[]"]
+    assert result.rejected_changes[0]["path"] == "optimization_slots.Dw_mm"
     brief, revision = service.get_brief("s")
-    assert revision == 1
-    assert brief.requirements.geometric_bounds[0].value == 52
+    assert revision == 2
+    assert brief.requirements.geometric_bounds[0].id == req_id
+    assert brief.requirements.geometric_bounds[0].value == 60
     assert brief.optimization_slots.Dw_mm.mode == "optimize"
 
 
