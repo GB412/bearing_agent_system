@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from bearing_agent_system.agent_tools import TurnTools
 from bearing_agent_system.models import TrustedContext, UpdateBatch
 from bearing_agent_system.parameter_catalog import EXTRA_QUANTITIES
 
@@ -196,3 +197,24 @@ def test_repeated_scalar_path_still_forbidden_and_replace_requires_unique_ids():
             change("life_hours", ">=", 30000, "h", "寿命至少30000h",
                    target_id="req-1"),
         ]})
+
+
+def test_existing_agent_write_tool_accepts_multiple_constraints_once(service):
+    message = "寿命至少20000h，最小油膜厚度不低于0.2μm，摩擦功耗不超过100W"
+    agent_tools = TurnTools(
+        service=service, session_id="agent-limits", message_id="user-turn",
+        user_message=message,
+    )
+    result = agent_tools.tools()[0].invoke({
+        "operation": "set",
+        "changes": [
+            change("life_hours", ">=", 20000, "h", "寿命至少20000h"),
+            change("min_film_thickness", ">=", 0.2, "μm",
+                   "最小油膜厚度不低于0.2μm"),
+            change("power_loss", "<=", 100, "W", "摩擦功耗不超过100W"),
+        ],
+    })
+    assert result["ok"], result
+    assert result["revision"] == 1
+    assert result["applied_changes"] == ["requirements.constraints[]"]
+    assert len(service.get_brief("agent-limits")[0].requirements.constraints) == 3
