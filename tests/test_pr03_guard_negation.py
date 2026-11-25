@@ -38,3 +38,47 @@ def test_read_only_knowledge_receipt_does_not_modify_brief():
     trace = [{"name": "lookup_engineering_knowledge", "ok": True,
               "knowledge_status": "RELATED_EVIDENCE"}]
     assert not needs_write_repair("尚未写入设计参数，以下是配合的一般原则。", trace)
+
+
+def test_authoritative_failed_write_receipt_not_duplicated_by_model():
+    trace = [{
+        "name": "update_design_brief", "ok": False,
+        "attempted_paths": ["engineering.materials.inner_ring_id"],
+        "applied_changes": [],
+        "rejected_changes": [{
+            "path": "engineering.materials.inner_ring_id",
+            "reason": "Unverified catalog ID",
+        }],
+    }]
+    answer = (
+        "本轮仍未保存：内圈材料（Unverified catalog ID）。\n"
+        "请通过目录提供的标准名称进行选择。"
+    )
+    visible = verified_reply(
+        answer, trace, {"known": {}, "missing": [], "pending_confirmation": []},
+    )
+    assert visible.count("本轮仍未保存：") == 1
+    assert "请通过目录提供的标准名称" in visible
+
+
+def test_authoritative_success_receipt_not_duplicated_by_model():
+    trace = [{
+        "name": "update_design_brief", "ok": True,
+        "attempted_paths": ["engineering.materials.inner_ring_id"],
+        "applied_changes": ["engineering.materials.inner_ring_id"],
+        "rejected_changes": [],
+    }]
+    answer = (
+        "本轮实际已写入：内圈材料=material:高碳铬轴承钢。\n"
+        "可以继续讨论工况。"
+    )
+    status = {
+        "known": {"engineering.materials.inner_ring_id": {
+            "value": "material:高碳铬轴承钢", "confirmed": True,
+            "precision": "exact", "unit": None,
+        }},
+        "missing": [], "pending_confirmation": [],
+    }
+    visible = verified_reply(answer, trace, status)
+    assert visible.count("本轮实际已写入：") == 1
+    assert "可以继续讨论工况" in visible
