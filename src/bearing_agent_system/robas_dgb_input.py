@@ -13,13 +13,12 @@ import csv
 import hashlib
 import io
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_EVEN
+from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
-from typing import Mapping
 
 from .models import DesignBrief
-
 
 # Field order is the physical DATA contract, not alphabetical order.
 # Repeated 'rec 7.2.x' lines have different fields and unique row indices.
