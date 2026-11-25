@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
+from .catalog_choices import CATALOG_FIELDS, CatalogChoices
 from .checks import get_design_status
 from .models import (
     DesignBrief,
@@ -29,8 +30,11 @@ from .parameter_catalog import (
 
 
 class SQLiteDesignBriefStore:
-    def __init__(self, database_path: str | Path):
+    def __init__(
+        self, database_path: str | Path, *, catalog_choices: CatalogChoices | None = None
+    ):
         self.database_path = str(database_path)
+        self.catalog_choices = catalog_choices or CatalogChoices()
         with self._connect() as conn:
             conn.execute(
                 """CREATE TABLE IF NOT EXISTS design_briefs (
@@ -172,12 +176,14 @@ class SQLiteDesignBriefStore:
                 design_status=get_design_status(edited),
             )
 
-    @classmethod
     def _apply_one(
-        cls, brief: DesignBrief, change, context: TrustedContext, operation: str
+        self, brief: DesignBrief, change, context: TrustedContext, operation: str
     ) -> bool:
         """Mutate only a disposable candidate; return whether it actually changed."""
-        new_value = cls._new_value(change, context, operation)
+        new_value = self._new_value(change, context, operation)
+        if change.path in CATALOG_FIELDS and new_value is not None:
+            canonical_id = self.catalog_choices.resolve(change.path, new_value.value)
+            new_value = new_value.model_copy(update={"value": canonical_id})
         spec = FIELDS[change.path]
         previous = get_path_value(brief, change.path)
         if spec.kind == "requirement":
@@ -185,7 +191,7 @@ class SQLiteDesignBriefStore:
                 if change.target_id is not None:
                     raise InvalidChange("New requirement cannot specify a target_id")
                 duplicate = any(
-                    cls._requirement_signature(x) == cls._requirement_signature(new_value)
+                    self._requirement_signature(x) == self._requirement_signature(new_value)
                     for x in previous
                 )
                 if duplicate:
@@ -211,7 +217,7 @@ class SQLiteDesignBriefStore:
             if new_value is None:
                 previous.pop(index)
                 return True
-            if cls._requirement_signature(previous[index]) != cls._requirement_signature(new_value):
+            if self._requirement_signature(previous[index]) != self._requirement_signature(new_value):
                 new_value.id = change.target_id
                 previous[index] = new_value
                 return True
@@ -221,12 +227,12 @@ class SQLiteDesignBriefStore:
         is_empty = previous is None or (
             isinstance(previous, OptimizationSlot) and previous.mode == "optimize"
         )
-        if operation == "set" and not is_empty and not cls._same_value(previous, new_value):
+        if operation == "set" and not is_empty and not self._same_value(previous, new_value):
             raise InvalidChange(f"Cannot set occupied field {change.path}; use replace")
         if operation == "replace" and is_empty and new_value is not None:
             if spec.kind != "slot":
                 raise InvalidChange(f"Cannot replace missing field {change.path}; use set")
-        if cls._same_value(previous, new_value):
+        if self._same_value(previous, new_value):
             return False
         set_path_value(brief, change.path, new_value)
         return True
@@ -258,6 +264,8 @@ class SQLiteDesignBriefStore:
                 raise InvalidChange("Recommendation needs a short nonempty choice")
             if FIELDS[path].kind == "enum" and value not in FIELDS[path].choices:
                 raise InvalidChange("Unsupported recommendation enum value")
+            if path in CATALOG_FIELDS:
+                value = self.catalog_choices.resolve(path, value)
             proposals.append({"path": path, "value": value.strip()})
             seen.add(path)
         with self._connect() as conn:
@@ -332,6 +340,8 @@ class SQLiteDesignBriefStore:
             changed: list[str] = []
             for entry in entries:
                 path, value = entry["path"], entry["value"]
+                if path in CATALOG_FIELDS:
+                    value = self.catalog_choices.resolve(path, value)
                 previous = get_path_value(edited, path)
                 if previous is not None and previous.value != value:
                     raise InvalidChange(f"Cannot overwrite existing user choice: {path}")
