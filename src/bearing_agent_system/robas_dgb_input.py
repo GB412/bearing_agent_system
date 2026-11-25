@@ -192,10 +192,10 @@ class PreparedData:
         file = folder / "DATA.txt"
         file.write_bytes(self.payload)
         (folder / "input_manifest.json").write_text(
-            json.dumps(self.manifest, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+            json.dumps(self.manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         (folder / "field_diff.json").write_text(
-            json.dumps(self.manifest["changed_fields"], ensure_ascii=False, indent=2) + "\\n",
+            json.dumps(self.manifest["changed_fields"], ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
         return file
