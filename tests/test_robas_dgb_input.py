@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from bearing_agent_system.models import (
     ParameterValue,
     Source,
 )
+from bearing_agent_system.robas_dgb_cli import main as run_cli
 from bearing_agent_system.robas_dgb_input import (
     LAYOUT,
     DGBProfile,
@@ -246,3 +248,28 @@ def test_uploaded_real_source_reference_when_supplied():
     # Do not silently rewrite the untouched reference during baseline replay.
     assert rows[30][8] == "20000"
     assert rows[32][4] == "0"
+
+
+def test_cli_writes_original_verified_artifacts(source_files, tmp_path):
+    design = tmp_path / "brief.json"
+    design.write_text(brief().model_dump_json(), encoding="utf-8")
+    choice = tmp_path / "candidate.json"
+    choice.write_text(json.dumps(candidate()), encoding="utf-8")
+    out = tmp_path / "output"
+    result = run_cli([
+        "--brief", str(design),
+        "--candidate", str(choice),
+        "--reference-data", str(source_files[0]),
+        "--resources", str(tmp_path),
+        "--reference-sha256", hashlib.sha256(reference_bytes()).hexdigest(),
+        "--out", str(out),
+    ])
+    assert result == 0
+    assert (out / "DATA.txt").is_file()
+    assert (out / "input_manifest.json").is_file()
+    assert (out / "field_diff.json").is_file()
+    payload = json.loads((out / "input_manifest.json").read_text(encoding="utf-8"))
+    diff = json.loads((out / "field_diff.json").read_text(encoding="utf-8"))
+    assert payload["field_count"] == 324
+    assert payload["changed_fields"] == diff
+    assert diff
