@@ -9,8 +9,8 @@ approval. All lengths in this module are millimetres; DATA conversion is CALC-02
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 GEOMETRY_RULE_ID = "robas-dgb-c0-source-v1"
 
