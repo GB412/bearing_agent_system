@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import csv
-import io
 import hashlib
+import io
 
 import pytest
 
