@@ -186,3 +186,74 @@ def test_real_agent_tool_rejects_fictional_option(service):
     })
     assert not result["ok"]
     assert service.get_brief("proposal-test")[1] == 0
+
+
+def test_model_sends_catalog_ids_while_user_says_exact_name_in_quotes(service):
+    """Regression: user's actual wording in the DeepSeek CLI trace."""
+    message = (
+        "内圈、外圈、钢球都选「高碳铬轴承钢」5000 N，"
+        "轴向载荷，润滑用油润滑"
+    )
+    names = [
+        "engineering.materials.inner_ring_id",
+        "engineering.materials.outer_ring_id",
+        "engineering.materials.ball_id",
+    ]
+    agent_turn = TurnTools(
+        service=service, session_id="live-regression", message_id="t1",
+        user_message=message,
+    )
+    result = agent_turn.tools()[0].invoke({
+        "operation": "set",
+        "changes": [
+            {
+                "path": path, "value": "material:高碳铬轴承钢",
+                "evidence_span": "内圈、外圈、钢球都选「高碳铬轴承钢」",
+            }
+            for path in names
+        ] + [{
+            "path": "engineering.lubrication.mode",
+            "value": "oil", "evidence_span": "润滑用油润滑",
+        }],
+    })
+    assert result["ok"], result
+    assert result["applied_changes"] == names + ["engineering.lubrication.mode"]
+    assert result["rejected_changes"] == []
+    stored, rev = service.get_brief("live-regression")
+    assert rev == 1
+    assert all(getattr(stored.engineering.materials, name).value
+               == "material:高碳铬轴承钢"
+               for name in ("inner_ring_id", "outer_ring_id", "ball_id"))
+    assert stored.engineering.lubrication.mode.value == "oil"
+    # An unspecified '5000 N' must not be assigned to axial/radial load.
+    assert stored.operating.radial_load_n is None
+    assert stored.operating.axial_load_n is None
+
+
+def test_model_id_without_catalog_name_in_trusted_user_message_is_rejected(service):
+    attempt = user_update(
+        service, "engineering.materials.inner_ring_id",
+        "material:高碳铬轴承钢", "请给我推荐材料",
+        session="missing-user-name",
+    )
+    assert attempt.rejected_changes
+    assert "User must explicitly name" in attempt.rejected_changes[0]["reason"]
+    assert service.get_brief("missing-user-name")[1] == 0
+
+
+def test_model_id_can_refer_to_trusted_name_even_if_evidence_uses_short_span(service):
+    message = "内圈材料采用高碳铬轴承钢，外圈还是待定"
+    result = service.update_design_brief(
+        "short-evidence",
+        UpdateBatch.model_validate({
+            "operation": "set",
+            "changes": [{
+                "path": "engineering.materials.inner_ring_id",
+                "value": "material:高碳铬轴承钢",
+                "evidence_span": "内圈材料采用高碳铬轴承钢",
+            }],
+        }),
+        TrustedContext(message_id="m", user_message=message),
+    )
+    assert not result.rejected_changes
+    assert result.applied_changes == ["engineering.materials.inner_ring_id"]
