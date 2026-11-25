@@ -147,7 +147,7 @@ class SQLiteDesignBriefStore:
                     rejected.append({"path": change.path, "reason": str(exc)})
                     continue
                 edited = candidate
-                if changed:
+                if changed and change.path not in changed_paths:
                     changed_paths.append(change.path)
 
             try:
