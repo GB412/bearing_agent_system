@@ -8,10 +8,16 @@ import io
 import pytest
 
 from bearing_agent_system.models import (
-    DesignBrief, ParameterValue, Source,
+    DesignBrief,
+    ParameterValue,
+    Source,
 )
 from bearing_agent_system.robas_dgb_input import (
-    DGBProfile, LAYOUT, RoBASInputError, _read_reference, build_dgb_data,
+    LAYOUT,
+    DGBProfile,
+    RoBASInputError,
+    _read_reference,
+    build_dgb_data,
 )
 
 
