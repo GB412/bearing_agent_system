@@ -12,6 +12,7 @@ import pytest
 from bearing_agent_system.models import (
     DesignBrief,
     ParameterValue,
+    OptimizationSlot,
     Source,
 )
 from bearing_agent_system.robas_dgb_input import (
@@ -207,8 +208,7 @@ def test_optional_unmapped_moments_must_not_be_silently_ignored(source_files):
 
 def test_locked_and_bounded_candidate_requirements_are_respected(source_files):
     design = brief()
-    design.optimization_slots.Z.mode = "locked"
-    design.optimization_slots.Z.value = 12
+    design.optimization_slots.Z = OptimizationSlot(mode="locked", value=12)
     build(source_files, design=design)
     different = candidate()
     different["Z"] = 10
@@ -216,8 +216,7 @@ def test_locked_and_bounded_candidate_requirements_are_respected(source_files):
         build(source_files, design=design, choice=different)
 
     design = brief()
-    design.optimization_slots.Dw_mm.mode = "bounded"
-    design.optimization_slots.Dw_mm.bounds = (14.0, 16.0)
+    design.optimization_slots.Dw_mm = OptimizationSlot(mode="bounded", bounds=(14.0, 16.0))
     build(source_files, design=design)
     outside_bounds = candidate()
     outside_bounds["Dw_mm"] = 17.0
@@ -234,7 +233,7 @@ def test_uploaded_real_source_reference_when_supplied():
     rows, sha = _read_reference(Path(path))
     assert sha == "b6610d150b0b8b05f0d024fe0c6fb90c1d4b270d5ef20f95398d48a6aa165a0f"
     target = io.StringIO(newline="")
-    csv.writer(target, lineterminator="\\r\\n", quoting=csv.QUOTE_MINIMAL).writerows(rows)
+    csv.writer(target, lineterminator="\r\n", quoting=csv.QUOTE_MINIMAL).writerows(rows)
     assert target.getvalue().encode("utf-8") == raw
     assert rows[5][3] == "11"
     assert rows[10][1] == "0.008334"
