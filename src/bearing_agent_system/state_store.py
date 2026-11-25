@@ -180,10 +180,23 @@ class SQLiteDesignBriefStore:
         self, brief: DesignBrief, change, context: TrustedContext, operation: str
     ) -> bool:
         """Mutate only a disposable candidate; return whether it actually changed."""
-        new_value = self._new_value(change, context, operation)
-        if change.path in CATALOG_FIELDS and new_value is not None:
-            canonical_id = self.catalog_choices.resolve(change.path, new_value.value)
-            new_value = new_value.model_copy(update={"value": canonical_id})
+        if change.path in CATALOG_FIELDS and change.value is not None:
+            # Model may submit a real catalog ID although user spoke the catalog
+            # NAME. Verify the name against this turn's trusted user text, then
+            # store only the original catalog ID. Never accept an ID on its own.
+            canonical_id, canonical_name = self.catalog_choices.resolve_record(
+                change.path, change.value
+            )
+            if canonical_name not in context.user_message:
+                raise InvalidChange(
+                    "User must explicitly name the selected catalog material or lubricant"
+                )
+            user_worded_change = change.model_copy(update={"value": canonical_name})
+            new_value = self._new_value(user_worded_change, context, operation)
+            if new_value is not None:
+                new_value = new_value.model_copy(update={"value": canonical_id})
+        else:
+            new_value = self._new_value(change, context, operation)
         spec = FIELDS[change.path]
         previous = get_path_value(brief, change.path)
         if spec.kind == "requirement":
