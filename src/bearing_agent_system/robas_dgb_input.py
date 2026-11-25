@@ -216,6 +216,17 @@ def build_dgb_data(
             raise RoBASInputError(f"Additional operating field {name} needs an explicit mapping")
     if set(candidate) != {"Dw_mm", "Z", "Dpw_mm", "fi", "fo"}:
         raise RoBASInputError("Candidate must supply exactly Dw_mm, Z, Dpw_mm, fi, fo")
+    # Candidate values are chosen by a future optimizer, but must respect any
+    # explicit user locks and bounds already present in DesignBrief/v2.
+    for name, raw in candidate.items():
+        value = _number(raw, f"candidate.{name}")
+        slot = getattr(brief.optimization_slots, name)
+        if slot.mode == "locked" and value != float(slot.value):
+            raise RoBASInputError(f"Candidate {name} conflicts with locked user value")
+        if slot.mode == "bounded":
+            lower, upper = slot.bounds
+            if not lower <= value <= upper:
+                raise RoBASInputError(f"Candidate {name} outside user bounds")
 
     d = _number(_confirmed(brief, "dimensions.d_mm", "mm"), "d_mm")
     outside = _number(_confirmed(brief, "dimensions.D_mm", "mm"), "D_mm")
