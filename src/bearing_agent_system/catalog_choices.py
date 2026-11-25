@@ -32,10 +32,14 @@ class CatalogChoices:
         )
 
     def resolve(self, field: str, value: str) -> str:
-        """Return exactly the installed catalog ID or reject the option.
+        """Return the installed canonical ID for an exact name or real ID."""
+        return self.resolve_record(field, value)[0]
 
-        A raw catalog name is accepted for the user-facing tool. The canonical
-        ID is also accepted internally when adopting a stored proposal.
+    def resolve_record(self, field: str, value: str) -> tuple[str, str]:
+        """Resolve exact catalog identity to (canonical ID, original name).
+
+        Both components come from the same loaded row. User evidence refers to
+        the human-facing name, while DesignBrief persists the canonical ID.
         """
         table = CATALOG_FIELDS.get(field)
         if table is None:
@@ -82,4 +86,4 @@ class CatalogChoices:
                 f"CATALOG_NOT_FOUND: {requested!r} is not an exact {table} "
                 "catalog name or ID; ask the user to select a listed name"
             )
-        return matches[0]["id"]
+        return matches[0]["id"], matches[0]["name"]
