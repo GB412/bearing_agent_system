@@ -106,5 +106,5 @@ def test_cage_type_cannot_be_written_but_material_can(service, operation):
     })
     assert saved["ok"]
     cage = service.get_brief("cage-material")[0].engineering.cage
-    assert cage.material_id.value == "GCr15"
+    assert cage.material_id.value == "material:GCr15"
     assert "type" not in cage.model_dump()
