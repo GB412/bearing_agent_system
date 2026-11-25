@@ -4,6 +4,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import os
+from pathlib import Path
 
 import pytest
 
@@ -201,3 +203,47 @@ def test_optional_unmapped_moments_must_not_be_silently_ignored(source_files):
     draft.operating.moments = fact("user specified moment")
     with pytest.raises(RoBASInputError, match="moments"):
         build(source_files, design=draft)
+
+
+def test_locked_and_bounded_candidate_requirements_are_respected(source_files):
+    design = brief()
+    design.optimization_slots.Z.mode = "locked"
+    design.optimization_slots.Z.value = 12
+    build(source_files, design=design)
+    different = candidate()
+    different["Z"] = 10
+    with pytest.raises(RoBASInputError, match="locked"):
+        build(source_files, design=design, choice=different)
+
+    design = brief()
+    design.optimization_slots.Dw_mm.mode = "bounded"
+    design.optimization_slots.Dw_mm.bounds = (14.0, 16.0)
+    build(source_files, design=design)
+    outside_bounds = candidate()
+    outside_bounds["Dw_mm"] = 17.0
+    with pytest.raises(RoBASInputError, match="bounds"):
+        build(source_files, design=design, choice=outside_bounds)
+
+
+def test_uploaded_real_source_reference_when_supplied():
+    """Optional integration regression; original DATA must remain outside public Git."""
+    path = os.environ.get("ROBAS_DGB_REFERENCE_DATA")
+    if not path:
+        pytest.skip("Set ROBAS_DGB_REFERENCE_DATA to original DGB DATA.txt")
+    raw = Path(path).read_bytes()
+    rows, sha = _read_reference(Path(path))
+    assert sha == "b6610d150b0b8b05f0d024fe0c6fb90c1d4b270d5ef20f95398d48a6aa165a0f"
+    target = io.StringIO(newline="")
+    csv.writer(target, lineterminator="\\r\\n", quoting=csv.QUOTE_MINIMAL).writerows(rows)
+    assert target.getvalue().encode("utf-8") == raw
+    assert rows[5][3] == "11"
+    assert rows[10][1] == "0.008334"
+    assert rows[10][7] == "0.05902"
+    assert rows[10][8] == "0.049"
+    assert rows[12][1] == "0.05892"
+    assert rows[12][2] == "0.05392"
+    assert rows[12][3] == "0.011"
+    # Original constructor leaves this scan endpoint different from Rpm2.
+    # Do not silently rewrite the untouched reference during baseline replay.
+    assert rows[30][8] == "20000"
+    assert rows[32][4] == "0"
