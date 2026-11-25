@@ -63,18 +63,20 @@ FIELDS: dict[str, FieldSpec] = {
 # Allowed unit aliases. Do not guess missing units from user natural language.
 UNIT_FACTORS: dict[str, dict[str, float]] = {
     "mm": {"mm": 1.0, "cm": 10.0, "m": 1000.0, "um": 0.001, "µm": 0.001,
+           "μm": 0.001,
            "毫米": 1.0, "厘米": 10.0, "微米": 0.001},
     "N": {"N": 1.0, "kN": 1000.0},
     "rpm": {"rpm": 1.0, "rps": 60.0},
     "degC": {"degC": 1.0, "℃": 1.0, "°C": 1.0, "C": 1.0},
     "h": {"h": 1.0, "小时": 1.0, "hour": 1.0, "hours": 1.0},
     "W": {"W": 1.0, "kW": 1000.0},
+    "MPa": {"MPa": 1.0, "兆帕": 1.0},
 }
 
 NUMERIC_LITERAL = re.compile(r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?")
 NUMERIC_WITH_UNIT = re.compile(
     r"(?<![A-Za-z0-9])([-+]?\d+(?:\.\d+)?)\s*"
-    r"(hours|hour|小时|毫米|厘米|微米|degC|rpm|rps|kN|kW|mm|cm|µm|um|°C|℃|N|W|h|m|K)"
+    r"(hours|hour|小时|毫米|厘米|微米|兆帕|degC|rpm|rps|MPa|kN|kW|mm|cm|µm|μm|um|°C|℃|N|W|h|m|K)"
     r"(?![A-Za-z])"
 )
 
@@ -231,6 +233,9 @@ def _normalize_number(value: Any, unit: str | None, spec: FieldSpec) -> float:
 EXTRA_QUANTITIES = {
     "life_hours": FieldSpec("number", "h", nonnegative=True),
     "power_loss": FieldSpec("number", "W", nonnegative=True),
+    "min_film_thickness": FieldSpec("number", "mm", nonnegative=True),
+    "max_bearing_temperature_c": FieldSpec("number", "degC"),
+    "max_contact_stress": FieldSpec("number", "MPa", nonnegative=True),
 }
 SLOT_HINTS: dict[str, tuple[str, ...]] = {
     "Dw_mm": ("Dw", "dw", "球径", "钢球直径"),
