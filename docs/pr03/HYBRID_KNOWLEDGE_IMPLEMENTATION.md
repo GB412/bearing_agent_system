@@ -93,3 +93,36 @@ python examples/pr03_live_eval.py --model deepseek-flash --max-cases 8
 - **RoBAS 资源**：默认路径 `.bearing_agent/robas_catalog.json` 是本地生成文件，**不会提交 GitHub**；也可用 `ROBAS_CATALOG_PATH` 指向已提取完整 JSON。未放置资源时返回 `CATALOG_UNAVAILABLE` 是符合预期的安全状态。
 
 本文件是 PR-03 的**唯一当前实施与验收文档**；旧 `IMPLEMENTATION.md` 仅作为初版历史说明。
+
+
+### 简化材料/润滑剂选择合同（PR-03 最终补丁）
+
+不增加 Agent、工具、Embedding 规则或模糊别名库。**用户最终输入目录原始标准名称**；程序可接受确切目录 ID（用于已有待采纳提案），实际存储 `_id` 字段为目录规范 ID，未来适配层通过 ID 查询原始名称和物性。
+
+- 涵盖 `engineering.materials.inner_ring_id`、`outer_ring_id`、`ball_id`、
+  `engineering.cage.material_id`、`engineering.lubrication.lubricant_id`。
+  `engineering.lubrication.mode` (`oil/grease/other`) 不需要目录即可按原规则保存，
+  不应把润滑方式与具体润滑剂混为一谈。
+- `CatalogChoices.resolve(path, name_or_id)` 读取 `ROBAS_CATALOG_PATH`（默认
+  `.bearing_agent/robas_catalog.json`），要求 `RoBASCatalog/v1`、目录 ID 和名称唯一；
+  只接受**完全一致**的标准名称或实际记录 ID，拒绝大小写猜测、拼写修正、
+  相似材料或未经核实的等价牌号。
+- 用户直接写入、`propose` 生成推荐、`accept/delegate` 采纳都由
+  `SQLiteDesignBriefStore` **统一执行目录校验**，而不是单靠 Prompt。
+  `propose` 保存规范 ID，`accept/delegate` 在提交前重新查目录；
+  若记录消失或目录不可用则拒绝，不修改已确认 DesignBrief。
+- 无匹配时返回 `CATALOG_NOT_FOUND`；目录未安装返回 `CATALOG_UNAVAILABLE`；
+  目录结构损坏/名称重复返回 `CATALOG_ERROR`。未命中不等于材料不适合；
+  Agent 可继续用现有 `lookup_engineering_knowledge` 的 `list/get`
+  展示合法名称，请用户重新选择。
+- `tests/conftest.py` 使用**合成目录**做离线单测，不能据此证明真实 RoBAS
+  已安装、某一材料真正存在或其物性适合工况。运行真实 DeepSeek 前先确认
+  本地目录已由授权来源准备，缺失时无需修改测试期假数据来伪造生产选项。
+
+工程边界：目录存在仅证明系统记录可用，**不等于材料物性已经核验或润滑剂适用**。
+RoBAS 历史 CSV 润滑剂物性可能是润滑油数据，不能将任意记录当作润滑脂。
+未来计算时应保留目录来源版本/哈希进行一致性检查，不静默继承未经核验的原始数值。
+
+验证：`python -m pytest -q tests -m "not live"`、`ruff check .`；
+新增 `tests/test_pr03_catalog_guard.py` 覆盖规范 ID、无效选项、目录缺失、
+重复名称、跨类型错配、提案与采纳时目录发生变化等场景。
