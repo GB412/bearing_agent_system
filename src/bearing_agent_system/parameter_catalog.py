@@ -287,11 +287,18 @@ def _make_requirement(change: UpdateChange, source: Source,
                 raise InvalidChange("Approximate quantity cannot create a hard requirement")
             value = _checked_quantity(raw_value, unit, spec, change.evidence_span)
             unit = spec.unit
-            observed_op = _nearby_operator(context.user_message, raw_value)
-            if observed_op is not None and observed_op != operator:
-                raise InvalidChange("Requirement comparator conflicts with user wording")
-            if change.path == "requirements.geometric_bounds[]" and observed_op is None:
-                raise InvalidChange("Geometric bound needs explicit comparison evidence")
+            # The LLM interprets whether a performance statement is a hard
+            # constraint or a softer goal, and which comparator it expresses.
+            # A short Chinese-keyword regex is not a reliable second semantic
+            # judge: it can reject valid paraphrases or silently miss others.
+            # Keep structural, numeric, unit and trusted evidence checks above.
+            # Geometry still has its separate strict boundary safeguard.
+            if change.path == "requirements.geometric_bounds[]":
+                observed_op = _nearby_operator(context.user_message, raw_value)
+                if observed_op is None:
+                    raise InvalidChange("Geometric bound needs explicit comparison evidence")
+                if observed_op != operator:
+                    raise InvalidChange("Geometric bound comparator conflicts with user wording")
         return Requirement(field=field, operator=operator, value=value, unit=unit, source=source)
     except (KeyError, TypeError, ValueError) as exc:
         raise InvalidChange(f"Invalid requirement: {exc}") from exc

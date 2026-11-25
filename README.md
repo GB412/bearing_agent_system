@@ -75,6 +75,8 @@ ruff check .
 python examples/pr03_live_eval.py --model deepseek-flash --max-cases 4
 ```
 
+性能硬约束与软目标的语义由 DeepSeek 在 ReAct 对话中判断，不依赖中文比较关键词的后端正则；后端仍校验字段、单位、数值与真实来源。可运行针对性付费测试：`python examples/pr03_constraint_live_eval.py --model deepseek-flash --max-cases 7`，核对硬约束、软目标、假设提问与 SQLite 实际结果。该测试不会在默认 CI 中调用 API，失败应保留真实记录再分析。
+
 真实测试核验模型是否实际调用知识工具、是否按厂家网页引用来源、是否在数值依据不足时停止编造，以及知识查询是否保持 DesignBrief 只读。脚本保存脱敏报告到被 Git 忽略的 `artifacts/pr03_live/`；未运行真实 API 时不可宣称 DeepSeek 验收通过。当前权威文档：[PR-03 混合检索与真实验收说明](docs/pr03/HYBRID_KNOWLEDGE_IMPLEMENTATION.md)；[初版历史说明](docs/pr03/IMPLEMENTATION.md)。
 
 首次语义模型验收需单独安装：`python -m pip install -e ".[dev,semantic]"`，然后显式运行 `python examples/pr03_semantic_smoke.py --allow-download`；此步骤可能下载模型，普通 CI 不会下载。

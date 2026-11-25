@@ -113,6 +113,9 @@ def grade(brief: Any, case: dict[str, Any]) -> list[str]:
             errors.append(f"missing geometric bound {expected}")
     for group, attr in (("prefs", "preferences"), ("constraints", "constraints")):
         existing = getattr(brief.requirements, attr)
+        count_key = "preference_count" if group == "prefs" else "constraint_count"
+        if count_key in case and len(existing) != case[count_key]:
+            errors.append(f"{attr} count: expected {case[count_key]}, got {len(existing)}")
         for expected in case.get(group, []):
             if not any(b.field == expected["field"] and b.operator == expected["operator"]
                        and ("value" not in expected or _close(b.value, expected["value"]))
