@@ -126,3 +126,20 @@ RoBAS 历史 CSV 润滑剂物性可能是润滑油数据，不能将任意记录
 验证：`python -m pytest -q tests -m "not live"`、`ruff check .`；
 新增 `tests/test_pr03_catalog_guard.py` 覆盖规范 ID、无效选项、目录缺失、
 重复名称、跨类型错配、提案与采纳时目录发生变化等场景。
+
+
+### 本地最小目录提取命令
+
+`scripts/extract_robas_catalog.py` 目前**只处理**已授权的 ZIP 中
+`materialDB.csv` 和 `lubricantDB.csv`，生成可供上述 ID 校验的
+`materials` / `lubricants` 记录，保留原始字符串和文件 SHA-256。
+没有声称复原 RoBAS 的所有数据库，也没有进行物性校验；输出
+`bearing_models=[]`，本脚本不能替代后续完整型号库导入。
+
+```powershell
+python scripts/extract_robas_catalog.py --archive "D:\\path\\RoBAS_Resources.zip" --output .bearing_agent/robas_catalog.json
+```
+
+若用户已有包含型号记录的完整 `robas_catalog.json`，**不要直接用此最小
+脚本覆盖**，应将输出另存临时路径后人工合并/核验数据来源；此阶段只使用
+生成的材料和润滑剂记录做精确名字与 ID 匹配，推荐适用性仍待审核。
