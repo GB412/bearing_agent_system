@@ -127,7 +127,7 @@ def test_deterministic_plain_data_without_data_file_or_solver():
         (DIMS, {**CANDIDATE, "Z": 1}, "BALL_OVERLAP"),
         (DIMS, {**CANDIDATE, "fi": 0.5}, "INVALID_CURVATURE"),
         (DIMS, {**CANDIDATE, "fo": 0.4}, "INVALID_CURVATURE"),
-        (DIMS, {**CANDIDATE, "Dw_mm": 80}, "INVALID_SHOULDERS"),
+        (DIMS, {**CANDIDATE, "Dw_mm": 80}, "INVALID_ROUNDED_GEOMETRY"),
         (DIMS, {**CANDIDATE, "Dw_mm": float("nan")}, "INVALID_VALUE"),
         (DIMS, {**CANDIDATE, "Dpw_mm": float("inf")}, "INVALID_VALUE"),
         (DIMS, {**CANDIDATE, "Z": 36}, "BALL_OVERLAP"),
