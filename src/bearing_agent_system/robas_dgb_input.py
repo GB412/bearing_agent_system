@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -190,6 +191,13 @@ class PreparedData:
         folder.mkdir(parents=True, exist_ok=True)
         file = folder / "DATA.txt"
         file.write_bytes(self.payload)
+        (folder / "input_manifest.json").write_text(
+            json.dumps(self.manifest, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+        )
+        (folder / "field_diff.json").write_text(
+            json.dumps(self.manifest["changed_fields"], ensure_ascii=False, indent=2) + "\\n",
+            encoding="utf-8",
+        )
         return file
 
 
