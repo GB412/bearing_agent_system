@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from bearing_agent_system.catalog_choices import CatalogChoices
 from bearing_agent_system.agent_tools import TurnTools
+from bearing_agent_system.catalog_choices import CatalogChoices
 from bearing_agent_system.models import TrustedContext, UpdateBatch
 from bearing_agent_system.parameter_catalog import InvalidChange
 
