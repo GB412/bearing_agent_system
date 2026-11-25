@@ -47,7 +47,7 @@ def test_real_dialogue_preserves_supported_fields_when_deleted_paths_attempted(s
     assert revision == 1
     assert saved.operating.inner_speed_rpm.value == 18000
     assert saved.dimensions.B_mm.value == 10
-    assert saved.engineering.materials.inner_ring_id.value == "GCr15"
+    assert saved.engineering.materials.inner_ring_id.value == "material:GCr15"
     assert "clearance" not in saved.model_dump()["engineering"]
     assert "fits" not in saved.model_dump()["engineering"]
 
