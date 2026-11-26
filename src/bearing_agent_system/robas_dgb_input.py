@@ -467,8 +467,16 @@ def build_dgb_data(
         for row, (label, fields) in zip(parsed, BUILTIN_LAYOUT, strict=True)
     ):
         raise RoBASInputError("Serialized DATA does not match builtin-life 39-record layout")
+    # Report actual generated positions, retaining the original reference row too.
+    generated_row_number = {
+        i: number for number, i in enumerate(
+            (i for i, (label, _) in enumerate(LAYOUT)
+             if label not in _BUILTIN_LIFE_OMIT), start=1
+        )
+    }
     diffs = [
-        {"record": LAYOUT[i][0], "row": i + 1, "field": key,
+        {"record": LAYOUT[i][0], "row": generated_row_number[i],
+         "source_row": i + 1, "field": key,
          "before": original[i][_FIELDS[i, key]],
          "after": rows[i][_FIELDS[i, key]], "source": source}
         for (i, key), source in sorted(provenance.items())
