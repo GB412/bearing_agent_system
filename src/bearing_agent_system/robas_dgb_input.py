@@ -72,6 +72,12 @@ LAYOUT = tuple((label, tuple(fields.split())) for label, fields in (
     line.split("|", 1) for line in _LAYOUT_TEXT.strip().splitlines()
 ))
 assert len(LAYOUT) == 43 and sum(len(fields) for _, fields in LAYOUT) == 324
+# Reference DATA from original C# is 43 rows; builtin RoBAS 8.11 life uses 39.
+_BUILTIN_LIFE_OMIT = frozenset({
+    "rec 8.6.0", "rec 8.6.1", "rec 8.6.2", "rec 8.6.3",
+})
+BUILTIN_LAYOUT = tuple(row for row in LAYOUT if row[0] not in _BUILTIN_LIFE_OMIT)
+assert len(BUILTIN_LAYOUT) == 39 and sum(len(f) for _, f in BUILTIN_LAYOUT) == 292
 _TEXT_ROWS = {3, 4}  # zero-based: rec 2.3, rec 3.1
 _FIELDS = {(i, key): col for i, (_, keys) in enumerate(LAYOUT)
            for col, key in enumerate(keys, start=1)}
@@ -157,6 +163,36 @@ def _lubricant_names(path: Path) -> set[str]:
     return set(names)
 
 
+def _lubricant_properties(row: Mapping[str, str], temperature_c: float) -> dict[str, float]:
+    """Original RoBAS Lubricant.cs temperature-dependent oil-property formulas.
+
+    Derived properties are reported, not put into unverified rec 10.x fields.
+    """
+    t1 = float(row["t1(degC)"]) + 273
+    t2 = float(row["t2(degC)"]) + 273
+    v1 = float(row["v1(m^2/s)"]) * 1e6
+    v2 = float(row["v2(m^2/s)"]) * 1e6
+    tk = temperature_c + 273
+    shift = 0.95 if min(v1, v2) < 0.3 else 0.7
+    exponent = (math.log(math.log(v2 + shift)) - math.log(math.log(v1 + shift))) / (
+        math.log(t1) - math.log(t2)
+    )
+    intercept = math.log(math.log(v2 + shift)) + exponent * math.log(t2)
+    nu = (math.exp(math.exp(intercept - exponent * math.log(tk))) - shift) / 1e6
+    density = float(row["density0"]) + float(row["slopeDensity"]) * temperature_c
+    specific_heat = (
+        float(row["specificHeat0(J/kg/degC)"])
+        + float(row["slopeCp"]) * temperature_c
+    )
+    return {
+        "temperature_c": temperature_c,
+        "kinematic_viscosity_m2_s": nu,
+        "dynamic_viscosity_pa_s": nu * density,
+        "density_kg_m3": density,
+        "specific_heat_j_kg_k": specific_heat,
+    }
+
+
 def _material_name(value: object, prefix: str) -> str:
     if not isinstance(value, str) or not value.startswith(prefix) or not value[len(prefix):]:
         raise RoBASInputError(f"Expected catalog ID starting with {prefix}")
@@ -179,6 +215,9 @@ class DGBProfile:
     geometry_clearance_mm: float = 0.017
     room_temperature_c: float = 25.0
     reference_sha256: str | None = None
+    # Optional engineering profile choices. None means inherited reference values.
+    shaft_material_id: str | None = None
+    housing_material_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -341,7 +380,8 @@ def build_dgb_data(
         set_field(label, key, value, "original_derived")
     for i, idx in enumerate((1, Z + 1, 0, 0, 0, 0), start=1):
         set_field("rec 3.4", f"kPltElemInd{i}", idx, "original_derived")
-    for record, suffix in ((13, "1"), (14, "2")):
+    guide_records = [i for i, (label, _) in enumerate(LAYOUT) if label == "rec 7.2.x"]
+    for record, suffix in zip(guide_records, ("1", "2"), strict=True):
         for key, val in (
             (f"cageGsDia{suffix}", cage_inner / 1000),
             (f"cageGsWidth{suffix}", guide_width / 1000),
@@ -381,26 +421,52 @@ def build_dgb_data(
             set_field(record, field, n, "original_material_csv")
 
     lubrication_mode = _confirmed(brief, "engineering.lubrication.mode")
+    for profile_id, record in (
+        (profile.shaft_material_id, "rec 8.3"),
+        (profile.housing_material_id, "rec 8.4"),
+    ):
+        if profile_id is None:
+            continue
+        name = _material_name(profile_id, "material:")
+        if name not in materials:
+            raise RoBASInputError(f"Unknown profile material: {name}")
+        material_names[record] = name
+        for field, csv_column in _MATERIAL_COLUMNS.items():
+            if field != "specificHeat":
+                set_field(record, field, float(materials[name][csv_column]),
+                          "engineering_material_profile")
+
     if lubrication_mode != "oil":
         raise RoBASInputError("V1 original profile supports oil lubrication only")
     oil = _material_name(_confirmed(brief, "engineering.lubrication.lubricant_id"),
                          "lubricant:")
     if oil not in _lubricant_names(Path(lubricant_csv)):
         raise RoBASInputError(f"Unknown lubricant in original CSV: {oil}")
-    # Original C# does not demonstrate a proven dynamic update from chosen oil
-    # to rec 9.7/10: keep all 29 original model values unchanged.
+    with Path(lubricant_csv).open(encoding="utf-8-sig", newline="") as stream:
+        oil_row = next(row for row in csv.DictReader(stream) if row["oilName"] == oil)
+    oil_properties = _lubricant_properties(oil_row, temp)
+    # The original C# does not wire oil properties into DATA rec 10.x.
+    # Do not guess a model-field mapping based on variable names.
+
+    set_field("rec 3.3", "kLifeCons", 0, "robas_811_builtin_life")
+    effective_rows = [
+        row for i, row in enumerate(rows) if LAYOUT[i][0] not in _BUILTIN_LIFE_OMIT
+    ]
 
     buf = io.StringIO(newline="")
     writer = csv.writer(buf, lineterminator="\r\n", quoting=csv.QUOTE_MINIMAL)
-    writer.writerows(rows)
+    writer.writerows(effective_rows)
     payload = buf.getvalue().encode("utf-8")
     if len(payload) == 0 or b"\x00" in payload:
         raise RoBASInputError("Invalid serialized DATA")
     # Round-trip validation: reject count, missing fields and invalid mode.
     # Use a small generated temporary-free read path by validating in memory.
     parsed = list(csv.reader(io.StringIO(payload.decode("utf-8")), skipinitialspace=True))
-    if len(parsed) != 43 or sum(len(row) - 1 for row in parsed) != 324:
-        raise RoBASInputError("Serialized DATA does not match 43/324")
+    if len(parsed) != len(BUILTIN_LAYOUT) or any(
+        row[0].strip().strip("'").strip('"') != label or len(row) != len(fields) + 1
+        for row, (label, fields) in zip(parsed, BUILTIN_LAYOUT, strict=True)
+    ):
+        raise RoBASInputError("Serialized DATA does not match builtin-life 39-record layout")
     diffs = [
         {"record": LAYOUT[i][0], "row": i + 1, "field": key,
          "before": original[i][_FIELDS[i, key]],
@@ -409,16 +475,27 @@ def build_dgb_data(
         if original[i][_FIELDS[i, key]] != rows[i][_FIELDS[i, key]]
     ]
     return PreparedData(payload, {
-        "schema_version": "DGB_RoBAS_DATA_v1",
+        "schema_version": "DGB_RoBAS_DATA_v2",
         "reference_sha256": reference_sha,
         "output_sha256": hashlib.sha256(payload).hexdigest(),
-        "record_count": 43,
-        "field_count": 324,
+        "life_mode": "builtin_default",
+        "kLifeCons": 0,
+        "omitted_records": sorted(_BUILTIN_LIFE_OMIT),
+        "record_count": 39,
+        "field_count": 292,
         "changed_fields": diffs,
         "mapped_field_count": len(provenance),
         "material_names_by_record": material_names,
+        "inherited_material_records": [
+            record for profile_id, record in (
+                (profile.shaft_material_id, "rec 8.3"),
+                (profile.housing_material_id, "rec 8.4"),
+            ) if profile_id is None
+        ],
         "lubricant_catalog_record": oil,
-        "lubricant_data_mode": "original_model_defaults_preserved",
+        "lubricant_properties_at_work_temperature": oil_properties,
+        "lubricant_data_mode": "properties_derived_model_defaults_preserved",
+        "lubricant_properties_written_to_data": False,
         "fixed_free_int_cls_m": 0,
         "geometry_clearance_mm": clear,
         "analysis_inner_race_outside_diameter_mm": inner_shoulder,
