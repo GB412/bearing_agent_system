@@ -18,8 +18,8 @@ from bearing_agent_system.models import (
 )
 from bearing_agent_system.robas_dgb_cli import main as run_cli
 from bearing_agent_system.robas_dgb_input import (
-    LAYOUT,
     BUILTIN_LAYOUT,
+    LAYOUT,
     DGBProfile,
     RoBASInputError,
     _read_reference,
