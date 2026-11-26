@@ -152,6 +152,12 @@ def test_builder_maps_original_fields_and_never_mutates_reference(source_files, 
     assert value(result.payload, "rec 10.6", "pocVis") == 0
     assert value(result.payload, "rec 8.6.4", "shearLmt1") == 0
 
+    load_change = next(change for change in result.manifest["changed_fields"]
+                       if change["record"] == "rec 9.1.1" and change["field"] == "appLoadX")
+    assert load_change["row"] == next(i + 1 for i, (name, _) in enumerate(BUILTIN_LAYOUT)
+                                      if name == "rec 9.1.1")
+    assert load_change["source_row"] == next(i + 1 for i, (name, _) in enumerate(LAYOUT)
+                                             if name == "rec 9.1.1")
     assert result.manifest["analysis_inner_race_outside_diameter_mm"] == 71.0
     assert result.manifest["lubricant_data_mode"] == "properties_derived_model_defaults_preserved"
     assert result.manifest["lubricant_properties_written_to_data"] is False
